@@ -4,7 +4,7 @@
 // ============================================================
 
 import { auth, db }               from './firebase-init.js';
-import { signInWithGoogle, logOut } from './auth.js';
+import { signInWithGoogle, logOut, checkRedirectResult } from './auth.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   collection, query, where, onSnapshot,
@@ -122,12 +122,16 @@ function showScreen(name) {
 }
 
 // ── Autenticación ─────────────────────────────────────────────────────────────
+
+// Procesa el resultado del redirect de Google al volver a la app.
+// Si venimos de un redirect con error, muestra toast. Si no hay redirect, no-op.
+checkRedirectResult().catch(() => {
+  showToast('Error al iniciar sesión con Google. Intenta de nuevo.', 'error');
+});
+
 document.getElementById('btn-google-signin').addEventListener('click', async () => {
-  try {
-    await signInWithGoogle();
-  } catch {
-    showToast('Error al iniciar sesión. Intenta de nuevo.', 'error');
-  }
+  // signInWithRedirect redirige la página completa — no retorna
+  await signInWithGoogle();
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
