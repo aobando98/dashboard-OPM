@@ -6,32 +6,24 @@
 import { auth } from './firebase-init.js';
 import {
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const provider = new GoogleAuthProvider();
 
 /**
- * Redirige al usuario a la página de Google Sign-In.
- * No usa popup — evita bloqueos de CSP y problemas en móvil.
- * Al volver, Firebase procesa el resultado vía onAuthStateChanged.
+ * Abre el popup de Google Sign-In.
+ * Requiere que el CSP permita apis.google.com (script-src) y
+ * creaticaopm.firebaseapp.com (frame-src) — ambos ya configurados.
  */
 export async function signInWithGoogle() {
-  await signInWithRedirect(auth, provider);
-}
-
-/**
- * Procesa el resultado del redirect al volver de Google.
- * Debe llamarse al inicio de la app (antes de mostrar cualquier pantalla).
- * Si no venimos de un redirect, retorna null silenciosamente.
- */
-export async function checkRedirectResult() {
   try {
-    return await getRedirectResult(auth);
+    await signInWithPopup(auth, provider);
   } catch (error) {
-    console.error('[auth] Error en redirect de Google:', error.code);
+    if (error.code === 'auth/popup-closed-by-user' ||
+        error.code === 'auth/cancelled-popup-request') return;
+    console.error('[auth] Error al iniciar sesión:', error.code);
     throw error;
   }
 }
