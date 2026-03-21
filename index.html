@@ -7,7 +7,7 @@
   <!-- CSP: restricts script/connect origins; unsafe-eval + unsafe-inline required by Tailwind CDN -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src  'self' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://www.gstatic.com;
+    script-src  'self' 'unsafe-eval' 'sha256-3haQKEeNlSaTgdmn330EmEI9SPcHROD8KMtqCHh9H2c=' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://www.gstatic.com;
     style-src   'self' 'unsafe-inline';
     connect-src 'self' https://*.googleapis.com https://*.google.com https://*.firebaseio.com wss://*.firebaseio.com https://*.cloudfunctions.net https://cdn.jsdelivr.net;
     img-src     'self' https://*.googleusercontent.com data: blob:;
