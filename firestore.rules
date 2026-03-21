@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// ============================================================
+//  Reglas de Seguridad de Firestore — CreaTica 3D Dashboard OPM
+//
+//  Principio: cada usuario solo puede leer, crear, actualizar y
+//  eliminar los documentos donde el campo `uid` coincida con
+//  su propio request.auth.uid (privacidad total de datos).
+//
+//  Cómo aplicar estas reglas:
+//  1. Ve a https://console.firebase.google.com
+//  2. Selecciona tu proyecto → Firestore Database → Rules
+//  3. Copia y pega este contenido completo → Publish
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Colección de inventario ────────────────────────────────
+    match /inventario/{docId} {
+
+      // Leer: solo si el documento le pertenece al usuario autenticado
+      allow read: if request.auth != null
+                  && resource.data.uid == request.auth.uid;
+
+      // Crear: el nuevo documento DEBE incluir un uid que coincida
+      // con el usuario que hace la solicitud (evita que alguien
+      // cree documentos con el uid de otra persona)
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+
+      // Actualizar: solo el propietario puede modificar su documento,
+      // y no puede cambiar el campo uid a otro valor
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid;
+
+      // Eliminar: solo el propietario del documento
+      allow delete: if request.auth != null
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    // Cualquier otra colección está bloqueada por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
