@@ -3,7 +3,7 @@
 //  CreaTica 3D · Dashboard OPM
 // ============================================================
 
-import { auth, db }               from './firebase-config.js';
+import { auth, db }               from './firebase-init.js';
 import { signInWithGoogle, logOut } from './auth.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
