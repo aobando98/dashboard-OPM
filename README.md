@@ -71,9 +71,16 @@ dashboard-OPM/
 2. En **Tus apps**, registra una app web (`</>`)
 3. Copia el objeto `firebaseConfig`
 
-### 5. Pegar credenciales en el código
+### 5. Crear tu archivo de credenciales local
 
-Abre `js/firebase-config.js` y reemplaza los valores `"PEGA_TU_..."`:
+`js/firebase-config.js` está en `.gitignore` — **nunca se sube a git**.
+Debes crearlo localmente copiando la plantilla:
+
+```bash
+cp js/firebase-config.example.js js/firebase-config.js
+```
+
+Luego abre `js/firebase-config.js` y reemplaza los valores `"PEGA_TU_..."` con los de tu proyecto:
 
 ```js
 const firebaseConfig = {
@@ -85,6 +92,8 @@ const firebaseConfig = {
   appId:             "1:123456789:web:abc123",
 };
 ```
+
+> `firebase-config.example.js` es la plantilla pública (sin credenciales reales). `firebase-config.js` es tu archivo local privado.
 
 ### 6. Aplicar reglas de seguridad
 

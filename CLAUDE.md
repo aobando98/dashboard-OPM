@@ -82,7 +82,15 @@ Collection: `inventario`
 
 ## Credentials Setup
 
-The file `js/firebase-config.js` contains placeholder strings. Replace them with values from Firebase Console → Project Settings → Your apps → Web app config. **Never commit real credentials.**
+`js/firebase-config.js` is in `.gitignore` — it is never committed to git.
+
+To set up locally:
+```bash
+cp js/firebase-config.example.js js/firebase-config.js
+# then fill in the real values from Firebase Console
+```
+
+`firebase-config.example.js` is the public template (committed). `firebase-config.js` is the private local file (ignored).
 
 ## Key Constants to Customize
 
