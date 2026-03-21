@@ -21,8 +21,7 @@ let editingItemId       = null;
 let pendingDeleteId     = null;
 let unsubscribeSnapshot = null;
 
-// Presupuesto mensual de referencia (MXN) — ajusta según tu negocio
-const PRESUPUESTO = 50_000;
+const PRESUPUESTO = 50_000; // MXN — ajusta según tu negocio
 
 // ── Referencias DOM ───────────────────────────────────────────────────────────
 const screenLoading   = document.getElementById('screen-loading');
@@ -33,6 +32,88 @@ const modal           = document.getElementById('modal');
 const modalDelete     = document.getElementById('modal-delete');
 const formInventario  = document.getElementById('form-inventario');
 const btnSubmit       = document.getElementById('btn-submit-form');
+
+// ── Constantes de validación ──────────────────────────────────────────────────
+const CATEGORIAS_VALIDAS = new Set([
+  'Filamento PLA', 'Filamento PETG', 'Resina', 'Repuestos', 'Equipos',
+]);
+const MAX_CHARS = 100;
+const MAX_NUM   = 999_999;
+
+const FORM_FIELDS = [
+  'field-nombre', 'field-categoria', 'field-cantidad',
+  'field-costo',  'field-proveedor', 'field-minimo',
+];
+
+// ── Sanitización: normaliza antes de validar ──────────────────────────────────
+function sanitizeStr(val) {
+  return String(val ?? '').trim().slice(0, MAX_CHARS);
+}
+
+function sanitizeInt(val) {
+  const n = Math.floor(Number(val));
+  return Number.isFinite(n) ? Math.max(0, Math.min(n, MAX_NUM)) : -1; // -1 = inválido
+}
+
+function sanitizeFloat(val) {
+  const n = parseFloat(Number(val).toFixed(2));
+  return Number.isFinite(n) ? Math.max(0, Math.min(n, MAX_NUM)) : -1; // -1 = inválido
+}
+
+function readForm() {
+  return {
+    nombre:        sanitizeStr(document.getElementById('field-nombre').value),
+    categoria:     document.getElementById('field-categoria').value,
+    cantidad:      sanitizeInt(document.getElementById('field-cantidad').value),
+    costoUnitario: sanitizeFloat(document.getElementById('field-costo').value),
+    proveedor:     sanitizeStr(document.getElementById('field-proveedor').value),
+    nivelMinimo:   sanitizeInt(document.getElementById('field-minimo').value),
+  };
+}
+
+// ── Validación: reglas de negocio ─────────────────────────────────────────────
+function validateForm(data) {
+  const errors = {};
+
+  if (!data.nombre)
+    errors['field-nombre']    = 'El nombre es obligatorio.';
+
+  if (!CATEGORIAS_VALIDAS.has(data.categoria))
+    errors['field-categoria'] = 'Selecciona una categoría válida.';
+
+  if (data.cantidad < 0)
+    errors['field-cantidad']  = 'Ingresa un número entero ≥ 0.';
+
+  if (data.costoUnitario < 0)
+    errors['field-costo']     = 'Ingresa un costo válido (≥ 0).';
+
+  if (data.nivelMinimo < 0)
+    errors['field-minimo']    = 'Ingresa un número entero ≥ 0.';
+
+  return { valid: Object.keys(errors).length === 0, errors };
+}
+
+// ── Feedback visual por campo ─────────────────────────────────────────────────
+function showFieldErrors(errors) {
+  clearFieldErrors();
+  for (const [id, msg] of Object.entries(errors)) {
+    const input = document.getElementById(id);
+    const errEl = document.getElementById(`err-${id}`);
+    input?.classList.add('border-red-500');
+    if (errEl) errEl.textContent = msg;
+  }
+  // Focus al primer campo con error
+  const firstId = Object.keys(errors)[0];
+  document.getElementById(firstId)?.focus();
+}
+
+function clearFieldErrors() {
+  FORM_FIELDS.forEach(id => {
+    document.getElementById(id)?.classList.remove('border-red-500');
+    const errEl = document.getElementById(`err-${id}`);
+    if (errEl) errEl.textContent = '';
+  });
+}
 
 // ── Gestión de pantallas ──────────────────────────────────────────────────────
 function showScreen(name) {
@@ -59,14 +140,12 @@ onAuthStateChanged(auth, (user) => {
   currentUser = user;
 
   if (user) {
-    const nameEl  = document.getElementById('user-name');
-    const emailEl = document.getElementById('user-email');
+    document.getElementById('user-name').textContent  = user.displayName || 'Usuario';
+    document.getElementById('user-email').textContent = user.email || '';
+
     const photoEl = document.getElementById('user-photo');
-
-    nameEl.textContent  = user.displayName || 'Usuario';
-    emailEl.textContent = user.email || '';
-
-    if (user.photoURL) {
+    // Sólo aceptar URLs de dominios conocidos de Google (fotos de perfil)
+    if (user.photoURL && /^https:\/\/lh\d+\.googleusercontent\.com\//.test(user.photoURL)) {
       photoEl.src = user.photoURL;
       photoEl.classList.remove('hidden');
     } else {
@@ -95,7 +174,7 @@ function subscribeInventario() {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     updateUI();
   }, (err) => {
-    console.error('[firestore]', err);
+    console.error('[firestore]', err.code);
     showToast('Error al cargar datos. Verifica tu conexión.', 'error');
   });
 }
@@ -117,7 +196,6 @@ function renderKPIs() {
   const pctOK      = total > 0 ? Math.round((itemsOK / total) * 100) : 0;
   const pctPres    = Math.min(Math.round((valorTotal / PRESUPUESTO) * 100), 999);
 
-  // Margen Operativo
   const margenEl = document.getElementById('kpi-margen-valor');
   margenEl.textContent = total === 0 ? '—' : `${pctOK}%`;
   margenEl.className   = `text-4xl font-bold ${
@@ -127,7 +205,6 @@ function renderKPIs() {
     total === 0 ? 'Sin artículos registrados'
                 : `${itemsOK} de ${total} artículos en óptimas condiciones`;
 
-  // Gasto vs Presupuesto
   document.getElementById('kpi-gasto-valor').textContent =
     `$${valorTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   document.getElementById('kpi-gasto-sub').textContent =
@@ -139,16 +216,15 @@ function renderKPIs() {
     pctPres >= 100 ? 'bg-red-500' : pctPres >= 80 ? 'bg-yellow-500' : 'bg-indigo-500'
   }`;
 
-  // OTIF / Nivel de Servicio
   const otifEl = document.getElementById('kpi-otif-valor');
   otifEl.textContent = total === 0 ? '—' : `${pctOK}%`;
   otifEl.className   = `text-4xl font-bold ${
     itemsAlert === 0 ? 'text-green-400' : itemsAlert <= 2 ? 'text-yellow-400' : 'text-red-400'
   }`;
   document.getElementById('kpi-otif-sub').textContent =
-    total === 0    ? 'Sin artículos registrados' :
+    total === 0      ? 'Sin artículos registrados' :
     itemsAlert === 0 ? 'Todos los artículos sobre el nivel mínimo' :
-                     `${itemsAlert} artículo${itemsAlert > 1 ? 's' : ''} en alerta de stock`;
+                       `${itemsAlert} artículo${itemsAlert > 1 ? 's' : ''} en alerta de stock`;
 }
 
 // ── Gráfico 1: Distribución de gasto por categoría ────────────────────────────
@@ -273,7 +349,7 @@ function renderChartInventario() {
   });
 }
 
-// ── Tabla de inventario (construida con DOM API — sin innerHTML con datos de usuario) ──
+// ── Tabla de inventario ───────────────────────────────────────────────────────
 function renderTable() {
   const search  = document.getElementById('input-buscar').value.toLowerCase();
   const catFilt = document.getElementById('select-categoria').value;
@@ -284,13 +360,12 @@ function renderTable() {
   );
   if (catFilt) items = items.filter(i => i.categoria === catFilt);
 
-  // Vaciar tabla
   tablaBody.replaceChildren();
 
   if (items.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 8;
+    td.colSpan   = 8;
     td.className = 'py-16 text-center text-gray-500 text-sm';
     td.textContent = inventarioItems.length === 0
       ? 'El inventario está vacío. Haz clic en "+ Agregar Artículo" para comenzar.'
@@ -317,7 +392,6 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.className = `border-b border-gray-700/50 hover:bg-gray-700/25 transition-colors ${alerta ? 'bg-red-950/20' : ''}`;
 
-    // Nombre
     const tdNombre = document.createElement('td');
     tdNombre.className = 'px-4 py-3 font-medium text-gray-100';
     if (alerta) {
@@ -327,15 +401,16 @@ function renderTable() {
     }
     tdNombre.appendChild(document.createTextNode(item.nombre));
 
-    // Categoría
     const tdCat = document.createElement('td');
     tdCat.className = 'px-4 py-3';
     const badge = document.createElement('span');
-    badge.className = `inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${BADGE[item.categoria] ?? 'bg-gray-700 text-gray-300'}`;
-    badge.textContent = item.categoria;
+    // Sólo aplica clase si la categoría está en la lista blanca conocida
+    badge.className = `inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+      CATEGORIAS_VALIDAS.has(item.categoria) ? (BADGE[item.categoria] ?? 'bg-gray-700 text-gray-300') : 'bg-gray-700 text-gray-400'
+    }`;
+    badge.textContent = CATEGORIAS_VALIDAS.has(item.categoria) ? item.categoria : 'Desconocida';
     tdCat.appendChild(badge);
 
-    // Cantidad
     const tdCant = document.createElement('td');
     tdCant.className = `px-4 py-3 font-mono font-bold ${alerta ? 'text-red-400' : 'text-green-400'}`;
     tdCant.textContent = item.cantidad;
@@ -346,27 +421,22 @@ function renderTable() {
       tdCant.appendChild(min);
     }
 
-    // Costo unitario
     const tdCosto = document.createElement('td');
     tdCosto.className = 'px-4 py-3 font-mono text-gray-300';
     tdCosto.textContent = `$${item.costoUnitario.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    // Valor total
     const tdValor = document.createElement('td');
     tdValor.className = 'px-4 py-3 font-mono font-semibold text-gray-200';
     tdValor.textContent = `$${valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    // Proveedor
     const tdProv = document.createElement('td');
     tdProv.className = 'px-4 py-3 text-gray-400 text-sm';
     tdProv.textContent = item.proveedor || '—';
 
-    // Nivel mínimo
     const tdMin = document.createElement('td');
     tdMin.className = 'px-4 py-3 font-mono text-gray-400';
     tdMin.textContent = item.nivelMinimo;
 
-    // Acciones
     const tdAcc = document.createElement('td');
     tdAcc.className = 'px-4 py-3';
     const btnWrap = document.createElement('div');
@@ -374,13 +444,13 @@ function renderTable() {
 
     const btnEdit = document.createElement('button');
     btnEdit.className = 'px-2.5 py-1 text-xs rounded-md bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 border border-indigo-600/30 transition-colors';
-    btnEdit.textContent = 'Editar';
+    btnEdit.textContent    = 'Editar';
     btnEdit.dataset.action = 'edit';
     btnEdit.dataset.id     = item.id;
 
     const btnDel = document.createElement('button');
     btnDel.className = 'px-2.5 py-1 text-xs rounded-md bg-red-600/20 text-red-400 hover:bg-red-600/40 border border-red-600/30 transition-colors';
-    btnDel.textContent = 'Eliminar';
+    btnDel.textContent    = 'Eliminar';
     btnDel.dataset.action = 'delete';
     btnDel.dataset.id     = item.id;
 
@@ -403,7 +473,7 @@ tablaBody.addEventListener('click', e => {
 });
 
 // Filtros
-document.getElementById('input-buscar').addEventListener('input',    renderTable);
+document.getElementById('input-buscar').addEventListener('input',     renderTable);
 document.getElementById('select-categoria').addEventListener('change', renderTable);
 
 // ── Modal Agregar / Editar ────────────────────────────────────────────────────
@@ -415,6 +485,7 @@ modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 function openModal(id = null) {
   editingItemId = id;
   formInventario.reset();
+  clearFieldErrors();
 
   if (id) {
     const item = inventarioItems.find(i => i.id === id);
@@ -436,21 +507,35 @@ function openModal(id = null) {
 
 function closeModal() {
   modal.classList.add('hidden');
+  clearFieldErrors();
   editingItemId = null;
 }
 
+// ── Submit del formulario con sanitización + validación ───────────────────────
 formInventario.addEventListener('submit', async e => {
   e.preventDefault();
+
+  // 1. Leer y sanitizar todos los inputs
+  const raw = readForm();
+
+  // 2. Validar reglas de negocio
+  const { valid, errors } = validateForm(raw);
+  if (!valid) {
+    showFieldErrors(errors);
+    return; // No deshabilitar el botón — el usuario debe corregir
+  }
+
+  // 3. Guardar en Firestore sólo datos limpios y validados
   btnSubmit.disabled    = true;
   btnSubmit.textContent = 'Guardando…';
 
   const data = {
-    nombre:        document.getElementById('field-nombre').value.trim(),
-    categoria:     document.getElementById('field-categoria').value,
-    cantidad:      Number(document.getElementById('field-cantidad').value),
-    costoUnitario: Number(document.getElementById('field-costo').value),
-    proveedor:     document.getElementById('field-proveedor').value.trim(),
-    nivelMinimo:   Number(document.getElementById('field-minimo').value),
+    nombre:        raw.nombre,
+    categoria:     raw.categoria,
+    cantidad:      raw.cantidad,
+    costoUnitario: raw.costoUnitario,
+    proveedor:     raw.proveedor,
+    nivelMinimo:   raw.nivelMinimo,
     uid:           currentUser.uid,
     updatedAt:     serverTimestamp(),
   };
@@ -466,7 +551,7 @@ formInventario.addEventListener('submit', async e => {
     }
     closeModal();
   } catch (err) {
-    console.error('[firestore] Error al guardar:', err);
+    console.error('[firestore] Error al guardar:', err.code);
     showToast('Error al guardar. Intenta de nuevo.', 'error');
   } finally {
     btnSubmit.disabled    = false;
@@ -503,7 +588,7 @@ async function handleDelete() {
     showToast('Artículo eliminado del inventario', 'success');
     closeDeleteModal();
   } catch (err) {
-    console.error('[firestore] Error al eliminar:', err);
+    console.error('[firestore] Error al eliminar:', err.code);
     showToast('Error al eliminar. Intenta de nuevo.', 'error');
   } finally {
     btn.disabled    = false;
@@ -540,10 +625,12 @@ function exportCSV() {
     .map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
     .join('\n');
 
-  // BOM (\uFEFF) para que Excel abra el archivo UTF-8 correctamente
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'), { href: url, download: `inventario-creatrica3d-${new Date().toISOString().slice(0, 10)}.csv` });
+  const a    = Object.assign(document.createElement('a'), {
+    href:     url,
+    download: `inventario-creatrica3d-${new Date().toISOString().slice(0, 10)}.csv`,
+  });
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -552,7 +639,7 @@ function exportCSV() {
   showToast(`${inventarioItems.length} artículos exportados a CSV`, 'success');
 }
 
-// ── Notificaciones Toast (DOM API — sin innerHTML con datos de usuario) ────────
+// ── Notificaciones Toast ──────────────────────────────────────────────────────
 function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
   const ok        = type === 'success';

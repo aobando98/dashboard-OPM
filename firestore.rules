@@ -16,6 +16,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ── Función auxiliar: valida la estructura de un documento ─
+    function camposValidos(data) {
+      return data.uid is string
+          && data.nombre is string
+          && data.nombre.size() > 0
+          && data.nombre.size() <= 100
+          && data.categoria in ['Filamento PLA', 'Filamento PETG', 'Resina', 'Repuestos', 'Equipos']
+          && data.cantidad is number
+          && data.cantidad >= 0
+          && data.cantidad <= 999999
+          && data.costoUnitario is number
+          && data.costoUnitario >= 0
+          && data.costoUnitario <= 999999
+          && data.proveedor is string
+          && data.proveedor.size() <= 100
+          && data.nivelMinimo is number
+          && data.nivelMinimo >= 0
+          && data.nivelMinimo <= 999999;
+    }
+
     // ── Colección de inventario ────────────────────────────────
     match /inventario/{docId} {
 
@@ -24,16 +44,19 @@ service cloud.firestore {
                   && resource.data.uid == request.auth.uid;
 
       // Crear: el nuevo documento DEBE incluir un uid que coincida
-      // con el usuario que hace la solicitud (evita que alguien
-      // cree documentos con el uid de otra persona)
+      // con el usuario que hace la solicitud, y todos los campos
+      // deben cumplir tipos, rangos y la lista blanca de categorías
       allow create: if request.auth != null
-                    && request.resource.data.uid == request.auth.uid;
+                    && request.resource.data.uid == request.auth.uid
+                    && camposValidos(request.resource.data);
 
       // Actualizar: solo el propietario puede modificar su documento,
-      // y no puede cambiar el campo uid a otro valor
+      // no puede cambiar el campo uid, y los campos deben seguir
+      // siendo válidos tras la actualización
       allow update: if request.auth != null
                     && resource.data.uid == request.auth.uid
-                    && request.resource.data.uid == request.auth.uid;
+                    && request.resource.data.uid == request.auth.uid
+                    && camposValidos(request.resource.data);
 
       // Eliminar: solo el propietario del documento
       allow delete: if request.auth != null

@@ -4,6 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard OPM · CreaTica 3D</title>
+  <!-- CSP: restricts script/connect origins; unsafe-eval + unsafe-inline required by Tailwind CDN -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src  'self' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://www.gstatic.com;
+    style-src   'self' 'unsafe-inline';
+    connect-src 'self' https://*.googleapis.com https://*.google.com https://*.firebaseio.com wss://*.firebaseio.com https://*.cloudfunctions.net;
+    img-src     'self' https://*.googleusercontent.com data: blob:;
+    frame-src   https://accounts.google.com;
+    font-src    'self';
+    object-src  'none';
+    base-uri    'self';
+    form-action 'self';
+  "/>
 
   <!-- Tailwind CSS (Play CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -328,10 +341,11 @@
           <label class="block text-xs font-medium text-gray-400 mb-1.5" for="field-nombre">
             Nombre del Artículo <span class="text-red-500">*</span>
           </label>
-          <input id="field-nombre" name="nombre" type="text" required
+          <input id="field-nombre" name="nombre" type="text" required maxlength="100"
             placeholder="ej. Filamento PLA Blanco 1 kg"
             class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          <p id="err-field-nombre" class="text-xs text-red-400 mt-1 hidden-when-empty"></p>
         </div>
 
         <div>
@@ -348,6 +362,7 @@
             <option>Repuestos</option>
             <option>Equipos</option>
           </select>
+          <p id="err-field-categoria" class="text-xs text-red-400 mt-1 hidden-when-empty"></p>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -355,19 +370,21 @@
             <label class="block text-xs font-medium text-gray-400 mb-1.5" for="field-cantidad">
               Cantidad <span class="text-red-500">*</span>
             </label>
-            <input id="field-cantidad" name="cantidad" type="number" required min="0" step="1"
+            <input id="field-cantidad" name="cantidad" type="number" required min="0" max="999999" step="1"
               placeholder="0"
               class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
                      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+            <p id="err-field-cantidad" class="text-xs text-red-400 mt-1 hidden-when-empty"></p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-400 mb-1.5" for="field-costo">
               Costo Unitario (MXN) <span class="text-red-500">*</span>
             </label>
-            <input id="field-costo" name="costoUnitario" type="number" required min="0" step="0.01"
+            <input id="field-costo" name="costoUnitario" type="number" required min="0" max="999999" step="0.01"
               placeholder="0.00"
               class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
                      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+            <p id="err-field-costo" class="text-xs text-red-400 mt-1 hidden-when-empty"></p>
           </div>
         </div>
 
@@ -375,20 +392,22 @@
           <label class="block text-xs font-medium text-gray-400 mb-1.5" for="field-proveedor">
             Proveedor
           </label>
-          <input id="field-proveedor" name="proveedor" type="text"
+          <input id="field-proveedor" name="proveedor" type="text" maxlength="100"
             placeholder="ej. Filamentos 3D MX"
             class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          <p id="err-field-proveedor" class="text-xs text-red-400 mt-1 hidden-when-empty"></p>
         </div>
 
         <div>
           <label class="block text-xs font-medium text-gray-400 mb-1.5" for="field-minimo">
             Nivel Mínimo de Alerta <span class="text-red-500">*</span>
           </label>
-          <input id="field-minimo" name="nivelMinimo" type="number" required min="0" step="1"
+          <input id="field-minimo" name="nivelMinimo" type="number" required min="0" max="999999" step="1"
             placeholder="5"
             class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          <p id="err-field-minimo" class="text-xs text-red-400 mt-1 hidden-when-empty"></p>
           <p class="text-xs text-gray-600 mt-1">Recibirás alerta visual cuando la cantidad caiga por debajo de este número.</p>
         </div>
 
