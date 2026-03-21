@@ -10,31 +10,58 @@ Single-Page Application for managing **Purchases, Operations and Inventory** of 
 
 - **Frontend**: HTML5 + Tailwind CSS (Play CDN) + Vanilla JS (ES Modules, no bundler)
 - **Database**: Firebase Firestore (web modular v10)
-- **Auth**: Firebase Authentication — Google Sign-In only
+- **Auth**: Firebase Authentication — Google Sign-In via `signInWithPopup`
 - **Charts**: Chart.js 4 (CDN global `Chart`)
-- **Hosting**: Vercel / Netlify / GitHub Pages (static)
+- **Hosting**: Firebase Hosting (primary) — `firebase deploy` deploys hosting + Firestore rules together
 
 ## File Structure
 
 ```
 dashboard-OPM/
-├── index.html              # Entire SPA: loading screen, login, dashboard, modals
-├── firestore.rules         # Firestore security rules
+├── index.html                  # Entire SPA: loading screen, login, dashboard, modals
+├── firebase.json               # Firebase Hosting config + Firestore rules deploy
+├── firestore.rules             # Firestore security rules (field-level validation)
 └── js/
-    ├── firebase-config.js  # Firebase init — exports db, auth
-    ├── auth.js             # signInWithGoogle(), logOut()
-    └── app.js              # All app logic: auth listener, CRUD, KPIs, charts, CSV
+    ├── firebase-init.js        # Auto-detects environment, exports db + auth
+    ├── firebase-config.js      # Local credentials (gitignored — never committed)
+    ├── firebase-config.example.js  # Public template for firebase-config.js
+    ├── auth.js                 # signInWithGoogle(), logOut()
+    └── app.js                  # All app logic: auth listener, CRUD, KPIs, charts, CSV
 ```
+
+## Firebase Initialization — firebase-init.js
+
+`firebase-init.js` is the single entry point for Firebase. It auto-detects the environment:
+
+- **Firebase Hosting / `firebase serve`**: fetches `/__/firebase/init.json` (reserved URL auto-served by Firebase with project credentials — no file needed)
+- **Local `python -m http.server`**: falls back to `firebase-config.js` (gitignored local file)
+
+`app.js` and `auth.js` both import `{ db, auth }` from `./firebase-init.js` — never directly from `firebase-config.js`.
 
 ## Running Locally
 
 ES Modules require an HTTP server — `file://` will not work.
 
 ```bash
+# Option A: Firebase CLI (recommended — uses /__/firebase/init.json automatically)
+firebase serve
+
+# Option B: Python (requires js/firebase-config.js with real credentials)
 python -m http.server 8080   # then open http://localhost:8080
-# or
-npx serve .
 ```
+
+## Deployment
+
+```bash
+npm install -g firebase-tools   # once
+firebase login                  # once
+firebase init                   # once — select Hosting + Firestore, public dir: .
+firebase deploy                 # deploys hosting + Firestore rules together
+```
+
+App is available at `https://creaticaopm.web.app`.
+
+**Important**: `js/firebase-config.js` is gitignored but is deployed by `firebase deploy` (Firebase CLI reads from filesystem, not git). The file must exist locally before deploying with python http.server fallback.
 
 ## Architecture
 
@@ -42,6 +69,7 @@ npx serve .
 - Loading → checks session → shows `#screen-login` or `#screen-dashboard`
 - On login: user photo/name set via `textContent`, `subscribeInventario()` starts
 - On logout: Firestore `unsubscribeSnapshot()` called before `signOut()`
+- Uses `signInWithPopup` (not redirect) — popup doesn't require complex CSP frame-src for result handling
 
 **Data layer**: Single Firestore collection `inventario`. All documents include a `uid` field matching `auth.currentUser.uid`. Query always filters `where('uid', '==', currentUser.uid)` — users never see each other's data.
 
@@ -55,6 +83,49 @@ npx serve .
 
 **CSV export**: Includes UTF-8 BOM (`\uFEFF`) so Excel opens the file with correct encoding. All cell values are double-quote escaped.
 
+## Security — Three-Layer Input Hardening
+
+### Layer 1 — HTML (`index.html`)
+- `maxlength="100"` on text inputs (`field-nombre`, `field-proveedor`)
+- `max="999999"` on numeric inputs (`field-cantidad`, `field-costo`, `field-minimo`)
+- Per-field `<p id="err-field-*">` error elements wired to `showFieldErrors()`
+- Content Security Policy meta tag (see CSP section below)
+
+### Layer 2 — JavaScript (`app.js`)
+- `sanitizeStr(val)` — trims, coerces to string, caps at 100 chars
+- `sanitizeInt(val)` / `sanitizeFloat(val)` — clamps to 0–999999, returns -1 on invalid
+- `CATEGORIAS_VALIDAS` — `Set` of allowed category strings
+- `readForm()` — reads all fields through sanitizers
+- `validateForm(data)` — returns `{ valid, errors }` with per-field messages
+- `showFieldErrors(errors)` / `clearFieldErrors()` — inline UX feedback
+- All DOM rendering uses `createElement`/`textContent` — zero `innerHTML` with variable data
+
+### Layer 3 — Firestore Rules (`firestore.rules`)
+- `camposValidos()` function: enforces field types, string length ≤100, numbers 0–999999, category whitelist
+- Applied on every `create` and `update` — server-side, cannot be bypassed by clients
+
+## Content Security Policy
+
+The CSP meta tag in `index.html` allows these origins (required for Firebase + Tailwind CDN):
+
+| Directive | Allowed origins |
+|---|---|
+| `script-src` | `'self'` `'unsafe-eval'` `sha256-...` (Tailwind inline) `cdn.tailwindcss.com` `cdn.jsdelivr.net` `www.gstatic.com` `apis.google.com` |
+| `style-src` | `'self'` `'unsafe-inline'` |
+| `connect-src` | `'self'` `*.googleapis.com` `*.google.com` `*.firebaseio.com` `wss://*.firebaseio.com` `*.cloudfunctions.net` `cdn.jsdelivr.net` `www.gstatic.com` |
+| `img-src` | `'self'` `*.googleusercontent.com` `data:` `blob:` |
+| `frame-src` | `accounts.google.com` `creaticaopm.firebaseapp.com` |
+| `font-src` | `'self'` |
+| `object-src` | `'none'` |
+
+**Notes**:
+- `unsafe-eval` is required by Tailwind Play CDN at runtime
+- `unsafe-inline` in `style-src` is required by Tailwind's style injection
+- `sha256-...` in `script-src` allows only the exact Tailwind config inline script — any other injected inline script is blocked
+- `apis.google.com` is required by Firebase Auth's `signInWithPopup` GAPI loader
+- `creaticaopm.firebaseapp.com` in `frame-src` is required by Firebase Auth for the popup result iframe
+- If the hash needs updating (Tailwind config script changed), the browser console shows the new hash in the CSP error message
+
 ## Firestore Data Model
 
 Collection: `inventario`
@@ -62,51 +133,33 @@ Collection: `inventario`
 | Field | Type | Notes |
 |---|---|---|
 | `uid` | string | Owner's Firebase Auth UID — used for all security rules |
-| `nombre` | string | Item name |
-| `categoria` | string | `Filamento PLA`, `Filamento PETG`, `Resina`, `Repuestos`, `Equipos` |
-| `cantidad` | number | Current stock |
-| `costoUnitario` | number | Unit cost in MXN |
-| `proveedor` | string | Supplier name |
-| `nivelMinimo` | number | Alert threshold |
+| `nombre` | string | Item name, max 100 chars |
+| `categoria` | string | Must be one of 5 valid values (whitelist enforced in JS + Firestore rules) |
+| `cantidad` | number | Current stock, 0–999999 |
+| `costoUnitario` | number | Unit cost in MXN, 0–999999 |
+| `proveedor` | string | Supplier name, max 100 chars |
+| `nivelMinimo` | number | Alert threshold, 0–999999 |
 | `createdAt` | timestamp | Set on create via `serverTimestamp()` |
 | `updatedAt` | timestamp | Set on every write via `serverTimestamp()` |
 
-## Security Rules
-
-`firestore.rules` enforces:
-- `read` — `resource.data.uid == request.auth.uid`
-- `create` — `request.resource.data.uid == request.auth.uid`
-- `update` — existing `uid` matches AND new `uid` cannot be changed
-- `delete` — `resource.data.uid == request.auth.uid`
-- All other collections: `allow read, write: if false`
+Valid categories: `Filamento PLA`, `Filamento PETG`, `Resina`, `Repuestos`, `Equipos`
 
 ## Credentials Setup
 
-`js/firebase-config.js` is in `.gitignore` — it is never committed to git.
+`js/firebase-config.js` is in `.gitignore` — never committed to git.
 
-To set up locally:
 ```bash
 cp js/firebase-config.example.js js/firebase-config.js
-# then fill in the real values from Firebase Console
+# fill in real values from Firebase Console → ⚙️ Settings → General → Web app
 ```
-
-`firebase-config.example.js` is the public template (committed). `firebase-config.js` is the private local file (ignored).
 
 ## Key Constants to Customize
 
 - `PRESUPUESTO` in `app.js` — monthly budget reference for the KPI card (default: `50_000` MXN)
 - `PALETA` in `app.js` — doughnut chart color array
-- Categories — `<option>` tags in `index.html` (modal + filter select) and `BADGE` map in `app.js`
+- Categories — `<option>` tags in `index.html` (modal + filter select), `BADGE` map in `app.js`, `CATEGORIAS_VALIDAS` Set in `app.js`, and `camposValidos()` list in `firestore.rules` — must be updated in all four places
 
 ## Branches
 
 - `main` — stable, production-ready
-- `dev` — active development; open PRs into `main`
-
-## Deployment
-
-```bash
-vercel --prod     # Vercel (recommended)
-# or drag folder to app.netlify.com/drop
-# or enable GitHub Pages from repo Settings → Pages → main / root
-```
+- `dev` — active development; merge into `main` after testing
