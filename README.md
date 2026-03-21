@@ -25,7 +25,7 @@ Dashboard web de **Compras, Operaciones e Inventario** para el negocio de impres
 | Base de datos | Firebase Firestore |
 | Autenticación | Firebase Authentication (Google Sign-In) |
 | Gráficos | Chart.js 4 |
-| Hosting | Vercel / Netlify / GitHub Pages |
+| Hosting | Firebase Hosting (recomendado) / Netlify / GitHub Pages |
 
 > No se requiere Node.js, bundler ni proceso de build. El proyecto corre directamente en el navegador.
 
@@ -153,21 +153,44 @@ Las reglas en `firestore.rules` garantizan que:
 
 ## Despliegue gratuito
 
-### Vercel (recomendado)
+### Firebase Hosting (recomendado)
+
+Ya tienes el proyecto Firebase — úsalo también para el hosting. Un solo comando despliega tanto el frontend como las reglas de Firestore.
 
 ```bash
-npm i -g vercel
-cd dashboard-OPM
-vercel --prod
+# 1. Instala el CLI de Firebase (una sola vez)
+npm install -g firebase-tools
+
+# 2. Inicia sesión con tu cuenta Google
+firebase login
+
+# 3. Vincula la carpeta a tu proyecto Firebase
+#    Selecciona "Hosting" + "Firestore" cuando el asistente lo pregunte.
+#    Public directory: . (punto)   /   No configure as SPA: N (ya lo maneja firebase.json)
+firebase init
+
+# 4. Despliega (hosting + reglas de Firestore en un solo comando)
+firebase deploy
 ```
 
-O arrastra la carpeta a [vercel.com/new](https://vercel.com/new).
+Tu app quedará disponible en:
+`https://<tu-project-id>.web.app`
 
-### Netlify
+Para despliegues posteriores basta con:
+```bash
+firebase deploy
+```
+
+O solo el frontend (sin tocar las reglas):
+```bash
+firebase deploy --only hosting
+```
+
+### Netlify (alternativa)
 
 Arrastra la carpeta a [app.netlify.com/drop](https://app.netlify.com/drop).
 
-### GitHub Pages
+### GitHub Pages (alternativa)
 
 1. Ve al repositorio → **Settings** → **Pages**
 2. Source: `Deploy from a branch` → rama `main` → carpeta `/ (root)`

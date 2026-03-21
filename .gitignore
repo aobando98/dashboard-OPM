@@ -1,6 +1,9 @@
 # Credenciales de Firebase — NUNCA subas el archivo real
 js/firebase-config.js
 
+# Firebase CLI — contiene el project ID local, se genera con `firebase init`
+.firebaserc
+
 # Entorno local
 .env
 .env.local
