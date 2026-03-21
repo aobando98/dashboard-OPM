@@ -1,4 +1,7 @@
-# Entorno local — NUNCA subas tus credenciales de Firebase
+# Credenciales de Firebase — NUNCA subas el archivo real
+js/firebase-config.js
+
+# Entorno local
 .env
 .env.local
 .env*.local

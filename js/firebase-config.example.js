@@ -1,20 +1,19 @@
 // ============================================================
-//  firebase-config.js — Configuración e inicialización de Firebase
+//  firebase-config.example.js — PLANTILLA de configuración
 //  CreaTica 3D · Dashboard OPM
-// ============================================================
 //
 //  INSTRUCCIONES:
-//  1. Ve a https://console.firebase.google.com
-//  2. Abre tu proyecto → Configuración del proyecto (ícono de engranaje)
-//  3. En la sección "Tus apps", selecciona tu app web
-//  4. Copia el objeto "firebaseConfig" y pégalo aquí reemplazando los valores
+//  1. Copia este archivo y renómbralo a: firebase-config.js
+//     (el archivo real está en .gitignore y NO se sube a git)
+//  2. Ve a https://console.firebase.google.com
+//  3. Tu proyecto → ⚙️ Configuración → pestaña General → Tu app web
+//  4. Copia el objeto firebaseConfig y reemplaza los valores de abajo
 // ============================================================
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore }  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth }       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-// ⚠️  REEMPLAZA ESTOS VALORES CON LOS DE TU PROYECTO FIREBASE
 const firebaseConfig = {
   apiKey:            "PEGA_TU_API_KEY_AQUI",
   authDomain:        "PEGA_TU_AUTH_DOMAIN_AQUI",
