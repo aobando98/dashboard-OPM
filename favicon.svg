@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Dashboard OPM · CreaTica 3D</title>
+
+  <!-- Fondo indigo con bordes redondeados (requerido para Apple Touch Icon) -->
+  <rect width="100" height="100" rx="20" fill="#3730a3"/>
+
+  <!--
+    Mapa de Costa Rica — silueta simplificada basada en coordenadas geográficas reales.
+
+    Sistema de referencia (viewBox 100×100):
+      x = (85.93 − lon°W) / 3.37 × 68 + 16   (oeste→izquierda, este→derecha)
+      y = (11.22 − lat°N) / 3.02 × 68 + 14   (norte→arriba, sur→abajo)
+
+    Puntos clave incluidos:
+      · Frontera Nicaragua (N): Peñas Blancas (85.7°W,11.0°N) → Los Chiles → Sixaola (82.9°W,11.0°N)
+      · Costa Caribe (E): recta hacia el SE
+      · Frontera Panamá (SE→SW): Sixaola (Caribe) → Río Sereno → Punta Burica (Pacífico)
+      · Costa Pacífica (O): sube con Península Osa y Península Nicoya
+      · Península de Nicoya (NO): el rasgo más distintivo — se alarga hacia el O
+  -->
+  <path
+    fill="#ffffff"
+    d="
+      M 20,23
+      L 26,17
+      L 42,14
+      L 58,14
+      L 78,19
+      L 82,28
+      L 83,40
+      L 83,53
+      L 79,63
+      L 70,71
+      L 57,75
+      L 49,71
+      L 45,79
+      L 37,72
+      L 39,62
+      L 32,56
+      L 25,51
+      L 14,43
+      L 17,34
+      L 26,38
+      L 22,27
+      Z
+    "
+  />
+</svg>
