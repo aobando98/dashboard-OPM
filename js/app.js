@@ -21,8 +21,8 @@ let chartVentasMes      = null;
 let editingItemId       = null;
 let pendingDeleteId     = null;
 let unsubscribeSnapshot = null;
-let cotizacionItems     = [];
-let cotizacionNextId    = 0;
+let cotizacionItems      = [];
+let unsubscribeCotizacion = null;
 let ventasItems         = [];
 let unsubscribeVentas   = null;
 let editingVentaId      = null;
@@ -151,12 +151,14 @@ document.getElementById('btn-google-signin').addEventListener('click', async () 
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  if (unsubscribeSnapshot)  { unsubscribeSnapshot();  unsubscribeSnapshot  = null; }
-  if (unsubscribeVentas)    { unsubscribeVentas();    unsubscribeVentas    = null; }
-  if (unsubscribeProductos) { unsubscribeProductos(); unsubscribeProductos = null; }
-  inventarioItems = [];
-  ventasItems     = [];
-  productosItems  = [];
+  if (unsubscribeSnapshot)   { unsubscribeSnapshot();   unsubscribeSnapshot   = null; }
+  if (unsubscribeVentas)     { unsubscribeVentas();     unsubscribeVentas     = null; }
+  if (unsubscribeProductos)  { unsubscribeProductos();  unsubscribeProductos  = null; }
+  if (unsubscribeCotizacion) { unsubscribeCotizacion(); unsubscribeCotizacion = null; }
+  inventarioItems  = [];
+  ventasItems      = [];
+  productosItems   = [];
+  cotizacionItems  = [];
   await logOut();
 });
 
@@ -180,13 +182,16 @@ onAuthStateChanged(auth, (user) => {
     subscribeInventario();
     subscribeVentas();
     subscribeProductos();
+    subscribeCotizacion();
   } else {
-    if (unsubscribeSnapshot)  { unsubscribeSnapshot();  unsubscribeSnapshot  = null; }
-    if (unsubscribeVentas)    { unsubscribeVentas();    unsubscribeVentas    = null; }
-    if (unsubscribeProductos) { unsubscribeProductos(); unsubscribeProductos = null; }
+    if (unsubscribeSnapshot)   { unsubscribeSnapshot();   unsubscribeSnapshot   = null; }
+    if (unsubscribeVentas)     { unsubscribeVentas();     unsubscribeVentas     = null; }
+    if (unsubscribeProductos)  { unsubscribeProductos();  unsubscribeProductos  = null; }
+    if (unsubscribeCotizacion) { unsubscribeCotizacion(); unsubscribeCotizacion = null; }
     inventarioItems = [];
     ventasItems     = [];
     productosItems  = [];
+    cotizacionItems = [];
     showScreen('login');
   }
 });
@@ -206,6 +211,22 @@ function subscribeInventario() {
   }, (error) => {
     console.error('[firestore]', error.code);
     showToast('Error al cargar datos. Verifica tu conexión.', 'error');
+  });
+}
+
+function subscribeCotizacion() {
+  const q = query(
+    collection(db, 'cotizacion'),
+    where('uid', '==', currentUser.uid),
+  );
+  unsubscribeCotizacion = onSnapshot(q, (snapshot) => {
+    cotizacionItems = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+    renderCotizacion();
+  }, (error) => {
+    console.error('[firestore/cotizacion]', error.code);
+    showToast('Error al cargar cotizaciones. Verifica tu conexión.', 'error');
   });
 }
 
@@ -243,21 +264,27 @@ document.getElementById('tab-btn-ventas').addEventListener('click',        () =>
 document.getElementById('tab-btn-cotizaciones').addEventListener('click',  () => switchTab('cotizaciones'));
 document.getElementById('tab-btn-productos').addEventListener('click',     () => switchTab('productos'));
 
-// ── Cotizador rápido (in-memory, sin Firestore) ───────────────────────────────
+// ── Cotizador rápido (Firestore-persisted) ───────────────────────────────────
 
-function addCotizacionEntry() {
-  const nombre   = document.getElementById('cotiz-nombre').value.trim().slice(0, 100);
+async function addCotizacionEntry() {
+  const nombre    = document.getElementById('cotiz-nombre').value.trim().slice(0, 100);
   const proveedor = document.getElementById('cotiz-proveedor').value.trim().slice(0, 100);
-  const precio   = parseFloat(document.getElementById('cotiz-precio').value);
+  const precio    = parseFloat(document.getElementById('cotiz-precio').value);
 
   if (!nombre || !proveedor || !Number.isFinite(precio) || precio < 0) return;
 
-  cotizacionItems.push({ id: cotizacionNextId++, nombre, proveedor, precio });
   document.getElementById('cotiz-nombre').value    = '';
   document.getElementById('cotiz-proveedor').value = '';
   document.getElementById('cotiz-precio').value    = '';
   document.getElementById('cotiz-nombre').focus();
-  renderCotizacion();
+
+  await addDoc(collection(db, 'cotizacion'), {
+    uid: currentUser.uid,
+    nombre,
+    proveedor,
+    precio,
+    createdAt: serverTimestamp(),
+  });
 }
 
 document.getElementById('btn-add-cotizacion').addEventListener('click', addCotizacionEntry);
@@ -316,8 +343,7 @@ function renderCotizacion() {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
     </svg>`;
     btnDel.addEventListener('click', () => {
-      cotizacionItems = cotizacionItems.filter(entrada => entrada.id !== item.id);
-      renderCotizacion();
+      deleteDoc(doc(db, 'cotizacion', item.id));
     });
     tdDel.appendChild(btnDel);
 
@@ -332,7 +358,9 @@ function renderCotizacion() {
   const btnClear = document.createElement('button');
   btnClear.className = 'text-xs text-gray-600 hover:text-red-400 transition-colors cursor-pointer';
   btnClear.textContent = 'Limpiar todo';
-  btnClear.addEventListener('click', () => { cotizacionItems = []; renderCotizacion(); });
+  btnClear.addEventListener('click', () => {
+    cotizacionItems.forEach(entrada => deleteDoc(doc(db, 'cotizacion', entrada.id)));
+  });
   clearRow.appendChild(btnClear);
 
   entriesEl.append(tableWrap, clearRow);

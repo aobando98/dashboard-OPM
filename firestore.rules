@@ -140,6 +140,32 @@ service cloud.firestore {
                     && resource.data.uid == request.auth.uid;
     }
 
+    // ── Colección de cotizacion rápida ────────────────────────────
+    function cotizacionCamposValidos(data) {
+      return data.uid is string
+          && data.nombre is string
+          && data.nombre.size() > 0
+          && data.nombre.size() <= 100
+          && data.proveedor is string
+          && data.proveedor.size() > 0
+          && data.proveedor.size() <= 100
+          && data.precio is number
+          && data.precio >= 0
+          && data.precio <= 999999;
+    }
+
+    match /cotizacion/{docId} {
+      allow read: if request.auth != null
+                  && resource.data.uid == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && cotizacionCamposValidos(request.resource.data);
+
+      allow delete: if request.auth != null
+                    && resource.data.uid == request.auth.uid;
+    }
+
     // Cualquier otra colección está bloqueada por defecto
     match /{document=**} {
       allow read, write: if false;
