@@ -21,7 +21,7 @@ let editingItemId       = null;
 let pendingDeleteId     = null;
 let unsubscribeSnapshot = null;
 
-const PRESUPUESTO = 50_000; // MXN — ajusta según tu negocio
+const PRESUPUESTO = 50_000; // USD — ajusta según tu negocio
 
 // ── Referencias DOM ───────────────────────────────────────────────────────────
 const screenLoading   = document.getElementById('screen-loading');
@@ -207,7 +207,7 @@ function renderKPIs() {
                 : `${itemsOK} de ${total} artículos en óptimas condiciones`;
 
   document.getElementById('kpi-gasto-valor').textContent =
-    `$${valorTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `$${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   document.getElementById('kpi-gasto-sub').textContent =
     `${pctPres}% del presupuesto mensual`;
 
@@ -272,7 +272,7 @@ function renderChartGasto() {
             label: ctx => {
               const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
               const pct   = Math.round((ctx.raw / total) * 100);
-              return ` $${ctx.raw.toLocaleString('es-MX', { minimumFractionDigits: 2 })} (${pct}%)`;
+              return ` $${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${pct}%)`;
             },
           },
         },
@@ -424,11 +424,11 @@ function renderTable() {
 
     const tdCosto = document.createElement('td');
     tdCosto.className = 'px-4 py-3 font-mono text-gray-300';
-    tdCosto.textContent = `$${item.costoUnitario.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    tdCosto.textContent = `$${item.costoUnitario.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const tdValor = document.createElement('td');
     tdValor.className = 'px-4 py-3 font-mono font-semibold text-gray-200';
-    tdValor.textContent = `$${valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    tdValor.textContent = `$${valor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const tdProv = document.createElement('td');
     tdProv.className = 'px-4 py-3 text-gray-400 text-sm';
@@ -608,7 +608,7 @@ function exportCSV() {
 
   const HEADERS = [
     'Nombre', 'Categoría', 'Cantidad',
-    'Costo Unitario (MXN)', 'Valor Total (MXN)',
+    'Costo Unitario (USD)', 'Valor Total (USD)',
     'Proveedor', 'Nivel Mínimo',
   ];
 
