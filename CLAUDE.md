@@ -67,19 +67,26 @@ App is available at `https://creaticaopm.web.app`.
 
 **Auth flow**: `onAuthStateChanged` in `app.js` drives screen visibility.
 - Loading → checks session → shows `#screen-login` or `#screen-dashboard`
-- On login: user photo/name set via `textContent`, `subscribeInventario()` starts
-- On logout: Firestore `unsubscribeSnapshot()` called before `signOut()`
+- On login: user photo/name set via `textContent`, three Firestore subscriptions started: `subscribeInventario()`, `subscribeVentas()`, `subscribeProductos()`
+- On logout: all three unsubscribe functions called, state arrays cleared, then `signOut()`
 - Uses `signInWithPopup` (not redirect) — popup doesn't require complex CSP frame-src for result handling
 
-**Data layer**: Single Firestore collection `inventario`. All documents include a `uid` field matching `auth.currentUser.uid`. Query always filters `where('uid', '==', currentUser.uid)` — users never see each other's data.
+**Data layer**: Three Firestore collections — `inventario`, `ventas`, `productos`. All documents include a `uid` field matching `auth.currentUser.uid`. Every query filters `where('uid', '==', currentUser.uid)` — users never see each other's data.
 
-**Real-time sync**: `onSnapshot` subscription updates state array `inventarioItems` and re-renders the entire UI on every Firestore change. No manual refresh needed.
+**Real-time sync**: Three independent `onSnapshot` subscriptions update their respective state arrays and re-render on every change. No manual refresh needed.
 
-**Reactive render pipeline**: every Firestore update calls `updateUI()` → `renderKPIs()` + `renderChartGasto()` + `renderChartInventario()` + `renderTable()` + `renderComparacion()`.
+**Reactive render pipelines**:
+- `updateUI()` (triggered by inventario snapshot) → `renderKPIs()` + `renderChartGasto()` + `renderChartInventario()` + `renderTable()` + `renderComparacion()`
+- `updateVentasUI()` (triggered by ventas snapshot) → `renderVentasKPIs()` + `renderVentasTable()` + `renderDashboardVentas()`
+- `renderProductosTable()` called directly from productos snapshot handler
+
+**Charts**: `chartGasto`, `chartInventario`, and `chartVentasMes` — all destroyed and recreated on each data update to avoid stale data. Chart.js is loaded as a CDN global — `import` is NOT needed.
+
+**Dashboard — ventas section**: rendered by `renderDashboardVentas()` called from `updateVentasUI()`. Shows 3 sales KPI cards (ingresos del mes, ventas del mes, ticket promedio), a 6-month bar chart (`chart-ventas-mes`) with the current month highlighted in green, and a "Últimas Ventas" panel with the 5 most recent entries.
 
 **Charts**: Chart.js instances are stored in `chartGasto` and `chartInventario`. Both are destroyed and recreated on each data update to avoid stale data. Chart.js is loaded as a CDN global — import is NOT needed.
 
-**Table rendering**: Built entirely with DOM API (`createElement`, `textContent`) — no `innerHTML` with user data to prevent XSS. Event delegation on `<tbody>` handles edit/delete button clicks via `data-action` and `data-id` attributes.
+**Table rendering**: Built entirely with DOM API (`createElement`, `textContent`) — no `innerHTML` with user data to prevent XSS. All tables (inventario, ventas, productos) use direct `addEventListener` on each row's action buttons.
 
 **Tab navigation**: Five tabs — "Dashboard", "Comparar", "Ventas", "Precios", "Productos". `switchTab(name)` in `app.js` toggles `hidden` on each `#tab-<name>` div and updates button styles. `activeTab` variable tracks current tab. Tabs array: `['dashboard', 'comparacion', 'ventas', 'cotizaciones', 'productos']`.
 
