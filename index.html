@@ -180,6 +180,14 @@
           </svg>
           Precios
         </button>
+        <button id="tab-btn-productos"
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+          Productos
+        </button>
       </div>
 
       <!-- ── Tab: Dashboard ─────────────────────────────────── -->
@@ -760,11 +768,73 @@
                 </p>
               </div>
 
+              <!-- Guardar como producto -->
+              <button id="btn-guardar-producto-cotiz"
+                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                </svg>
+                Guardar como Producto
+              </button>
+
             </div>
           </div><!-- /resultados -->
 
         </div><!-- /grid -->
       </div><!-- /tab-cotizaciones -->
+
+      <!-- ── Tab: Productos ─────────────────────────────────── -->
+      <div id="tab-productos" class="hidden space-y-6">
+
+        <!-- Encabezado -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-white">Catálogo de Productos</h2>
+            <p class="text-sm text-gray-400 mt-0.5">Productos guardados con sus costos y precios calculados</p>
+          </div>
+          <button id="btn-nuevo-producto"
+            class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nuevo Producto
+          </button>
+        </div>
+
+        <!-- Tabla de productos -->
+        <div class="bg-gray-800 rounded-2xl border border-gray-700/50 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-700/60">
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Nombre</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Material</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Qty</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Costo/und</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Precio venta</th>
+                  <th class="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody id="productos-tabla-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Estado vacío -->
+          <div id="productos-empty" class="hidden py-16 text-center">
+            <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <p class="text-gray-500 text-sm font-medium">Sin productos guardados</p>
+            <p class="text-gray-600 text-xs mt-1">
+              Calcula un precio en "Precios" y usa el botón <strong class="text-gray-500">Guardar como Producto</strong>,
+              o crea uno manualmente aquí.
+            </p>
+          </div>
+        </div>
+
+      </div><!-- /tab-productos -->
 
     </main>
   </div>
@@ -849,6 +919,85 @@
           Guardar Venta
         </button>
 
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODAL: AGREGAR / EDITAR PRODUCTO
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="modal-producto"
+    class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl shadow-2xl w-full max-w-md">
+
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/60">
+        <h3 id="modal-producto-title" class="font-semibold text-gray-100 text-base">Nuevo Producto</h3>
+        <button id="btn-close-modal-producto"
+          class="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="form-producto" class="px-6 py-5 space-y-4" novalidate>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5" for="prod-nombre">
+            Nombre del Producto <span class="text-red-500">*</span>
+          </label>
+          <input id="prod-nombre" type="text" maxlength="100" required placeholder="ej. Figura dragón PLA 15cm"
+            class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="prod-material">Material</label>
+            <input id="prod-material" type="text" maxlength="50" placeholder="ej. PLA Blanco"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="prod-qty">
+              Unidades calc. <span class="text-red-500">*</span>
+            </label>
+            <input id="prod-qty" type="number" min="1" max="999999" required placeholder="1"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="prod-costo">
+              Costo por unidad (USD) <span class="text-red-500">*</span>
+            </label>
+            <input id="prod-costo" type="number" min="0" step="0.01" placeholder="0.00"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="prod-precio">
+              Precio de venta (USD)
+            </label>
+            <input id="prod-precio" type="number" min="0" step="0.01" placeholder="0.00"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5" for="prod-notas">Notas</label>
+          <textarea id="prod-notas" maxlength="200" rows="2" placeholder="Descripción, variantes, observaciones…"
+            class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"></textarea>
+        </div>
+
+        <button id="btn-submit-producto" type="button"
+          class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer">
+          Guardar Producto
+        </button>
       </form>
     </div>
   </div>

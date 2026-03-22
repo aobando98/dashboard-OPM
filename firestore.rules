@@ -100,6 +100,46 @@ service cloud.firestore {
                     && resource.data.uid == request.auth.uid;
     }
 
+    // ── Colección de productos ─────────────────────────────────────
+    function productoCamposValidos(data) {
+      return data.uid is string
+          && data.nombre is string
+          && data.nombre.size() > 0
+          && data.nombre.size() <= 100
+          && data.material is string
+          && data.material.size() <= 50
+          && data.qty is number
+          && data.qty >= 1
+          && data.qty <= 999999
+          && data.costoUnidad is number
+          && data.costoUnidad >= 0
+          && data.costoUnidad <= 999999
+          && data.precioSugerido is number
+          && data.precioSugerido >= 0
+          && data.precioSugerido <= 999999
+          && data.notas is string
+          && data.notas.size() <= 200
+          && data.inputs is string
+          && data.inputs.size() <= 5000;
+    }
+
+    match /productos/{docId} {
+      allow read: if request.auth != null
+                  && resource.data.uid == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && productoCamposValidos(request.resource.data);
+
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && productoCamposValidos(request.resource.data);
+
+      allow delete: if request.auth != null
+                    && resource.data.uid == request.auth.uid;
+    }
+
     // Cualquier otra colección está bloqueada por defecto
     match /{document=**} {
       allow read, write: if false;

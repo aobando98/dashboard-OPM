@@ -26,6 +26,10 @@ let ventasItems         = [];
 let unsubscribeVentas   = null;
 let editingVentaId      = null;
 let pendingDeleteType   = 'inventario';
+let productosItems      = [];
+let unsubscribeProductos = null;
+let editingProductoId   = null;
+let _cotizInputsJSON    = ''; // inputs snapshot when saving from cotizaciones
 
 const PRESUPUESTO = 50_000; // USD — ajusta según tu negocio
 
@@ -146,10 +150,12 @@ document.getElementById('btn-google-signin').addEventListener('click', async () 
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-  if (unsubscribeVentas)   { unsubscribeVentas();   unsubscribeVentas   = null; }
+  if (unsubscribeSnapshot)  { unsubscribeSnapshot();  unsubscribeSnapshot  = null; }
+  if (unsubscribeVentas)    { unsubscribeVentas();    unsubscribeVentas    = null; }
+  if (unsubscribeProductos) { unsubscribeProductos(); unsubscribeProductos = null; }
   inventarioItems = [];
   ventasItems     = [];
+  productosItems  = [];
   await logOut();
 });
 
@@ -172,11 +178,14 @@ onAuthStateChanged(auth, (user) => {
     showScreen('dashboard');
     subscribeInventario();
     subscribeVentas();
+    subscribeProductos();
   } else {
-    if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-    if (unsubscribeVentas)   { unsubscribeVentas();   unsubscribeVentas   = null; }
+    if (unsubscribeSnapshot)  { unsubscribeSnapshot();  unsubscribeSnapshot  = null; }
+    if (unsubscribeVentas)    { unsubscribeVentas();    unsubscribeVentas    = null; }
+    if (unsubscribeProductos) { unsubscribeProductos(); unsubscribeProductos = null; }
     inventarioItems = [];
     ventasItems     = [];
+    productosItems  = [];
     showScreen('login');
   }
 });
@@ -213,7 +222,7 @@ let activeTab = 'dashboard';
 
 function switchTab(tab) {
   activeTab = tab;
-  const tabs    = ['dashboard', 'comparacion', 'ventas', 'cotizaciones'];
+  const tabs    = ['dashboard', 'comparacion', 'ventas', 'cotizaciones', 'productos'];
   const btnBase = 'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer';
 
   tabs.forEach(t => {
@@ -231,6 +240,7 @@ document.getElementById('tab-btn-dashboard').addEventListener('click',     () =>
 document.getElementById('tab-btn-comparacion').addEventListener('click',   () => switchTab('comparacion'));
 document.getElementById('tab-btn-ventas').addEventListener('click',        () => switchTab('ventas'));
 document.getElementById('tab-btn-cotizaciones').addEventListener('click',  () => switchTab('cotizaciones'));
+document.getElementById('tab-btn-productos').addEventListener('click',     () => switchTab('productos'));
 
 // ── Cotizador rápido (in-memory, sin Firestore) ───────────────────────────────
 
@@ -912,6 +922,9 @@ function openDeleteModal(id, type = 'inventario') {
   if (type === 'venta') {
     const v = ventasItems.find(v => v.id === id);
     nameEl.textContent = v ? `"${v.producto}"` : 'esta venta';
+  } else if (type === 'producto') {
+    const p = productosItems.find(p => p.id === id);
+    nameEl.textContent = p ? `"${p.nombre}"` : 'este producto';
   } else {
     const item = inventarioItems.find(i => i.id === id);
     nameEl.textContent = item ? `"${item.nombre}"` : 'este artículo';
@@ -931,8 +944,12 @@ async function handleDelete() {
   btn.textContent  = 'Eliminando…';
 
   try {
-    const coleccion = pendingDeleteType === 'venta' ? 'ventas' : 'inventario';
-    const msg       = pendingDeleteType === 'venta' ? 'Venta eliminada' : 'Artículo eliminado del inventario';
+    const coleccion = pendingDeleteType === 'venta'     ? 'ventas'
+                    : pendingDeleteType === 'producto'  ? 'productos'
+                    : 'inventario';
+    const msg       = pendingDeleteType === 'venta'     ? 'Venta eliminada'
+                    : pendingDeleteType === 'producto'  ? 'Producto eliminado'
+                    : 'Artículo eliminado del inventario';
     await deleteDoc(doc(db, coleccion, pendingDeleteId));
     showToast(msg, 'success');
     closeDeleteModal();
@@ -1266,6 +1283,8 @@ function getCotizInputs() {
 
   return {
     // Producto
+    nombre:   String(document.getElementById('cq-nombre')?.value || '').trim(),
+    material: String(document.getElementById('cq-material')?.value || ''),
     qty: Math.max(1, parseInt(document.getElementById('cq-qty')?.value) || 1),
     // Costos de impresión
     filCostPerKg: v('cq-fil-cost'),
@@ -1375,6 +1394,272 @@ function updatePrinterCalcResult() {
   }
   return rate;
 }
+
+// ── Productos: Firestore subscription ────────────────────────────────────────
+
+function subscribeProductos() {
+  const q = query(
+    collection(db, 'productos'),
+    where('uid', '==', currentUser.uid),
+  );
+  unsubscribeProductos = onSnapshot(q, (snap) => {
+    productosItems = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+    renderProductosTable();
+  }, (err) => {
+    console.error('[firestore productos]', err.code);
+    showToast('Error al cargar productos. Verifica tu conexión.', 'error');
+  });
+}
+
+// ── Productos: tabla ──────────────────────────────────────────────────────────
+
+function renderProductosTable() {
+  const tbody   = document.getElementById('productos-tabla-body');
+  const emptyEl = document.getElementById('productos-empty');
+  if (!tbody) return;
+
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+  if (productosItems.length === 0) {
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  const fmt = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  productosItems.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.className = 'border-t border-gray-700/40 hover:bg-gray-700/20 transition-colors';
+
+    const tdNombre = document.createElement('td');
+    tdNombre.className = 'px-4 py-3 text-gray-100 text-sm font-medium max-w-[200px]';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'truncate block';
+    nameSpan.textContent = p.nombre;
+    if (p.notas) nameSpan.title = p.notas;
+    tdNombre.appendChild(nameSpan);
+
+    const tdMaterial = document.createElement('td');
+    tdMaterial.className = 'px-4 py-3 text-gray-400 text-sm';
+    tdMaterial.textContent = p.material || '—';
+
+    const tdQty = document.createElement('td');
+    tdQty.className = 'px-4 py-3 text-gray-300 text-sm text-right';
+    tdQty.textContent = p.qty;
+
+    const tdCosto = document.createElement('td');
+    tdCosto.className = 'px-4 py-3 text-gray-300 text-sm text-right font-mono';
+    tdCosto.textContent = fmt(p.costoUnidad);
+
+    const tdPrecio = document.createElement('td');
+    tdPrecio.className = 'px-4 py-3 text-emerald-400 text-sm text-right font-mono font-semibold';
+    tdPrecio.textContent = p.precioSugerido > 0 ? fmt(p.precioSugerido) : '—';
+
+    const tdAcciones = document.createElement('td');
+    tdAcciones.className = 'px-4 py-3';
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'flex items-center justify-end gap-1';
+
+    // Botón "Cargar en cotizaciones" (solo si tiene inputs guardados)
+    if (p.inputs) {
+      const btnLoad = document.createElement('button');
+      btnLoad.className = 'p-1.5 text-gray-500 hover:text-indigo-400 transition-colors cursor-pointer rounded';
+      btnLoad.title = 'Cargar en calculadora de precios';
+      btnLoad.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>`;
+      btnLoad.addEventListener('click', () => cargarProductoEnCotizacion(p));
+      btnGroup.appendChild(btnLoad);
+    }
+
+    const btnEdit = document.createElement('button');
+    btnEdit.className = 'p-1.5 text-gray-500 hover:text-indigo-400 transition-colors cursor-pointer rounded';
+    btnEdit.title = 'Editar';
+    btnEdit.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+    </svg>`;
+    btnEdit.addEventListener('click', () => openProductoModal(p));
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'p-1.5 text-gray-500 hover:text-red-400 transition-colors cursor-pointer rounded';
+    btnDel.title = 'Eliminar';
+    btnDel.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+    </svg>`;
+    btnDel.addEventListener('click', () => openDeleteModal(p.id, 'producto'));
+
+    btnGroup.append(btnEdit, btnDel);
+    tdAcciones.appendChild(btnGroup);
+
+    tr.append(tdNombre, tdMaterial, tdQty, tdCosto, tdPrecio, tdAcciones);
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Productos: modal crear / editar ───────────────────────────────────────────
+
+const modalProducto = document.getElementById('modal-producto');
+
+function openProductoModal(producto = null) {
+  editingProductoId = producto ? producto.id : null;
+  _cotizInputsJSON  = producto ? (producto.inputs || '') : '';
+
+  document.getElementById('modal-producto-title').textContent = producto ? 'Editar Producto' : 'Nuevo Producto';
+  document.getElementById('btn-submit-producto').textContent  = producto ? 'Guardar Cambios' : 'Guardar Producto';
+
+  document.getElementById('prod-nombre').value    = producto ? producto.nombre           : '';
+  document.getElementById('prod-material').value  = producto ? (producto.material || '') : '';
+  document.getElementById('prod-qty').value       = producto ? producto.qty              : 1;
+  document.getElementById('prod-costo').value     = producto ? producto.costoUnidad      : '';
+  document.getElementById('prod-precio').value    = producto ? producto.precioSugerido   : '';
+  document.getElementById('prod-notas').value     = producto ? (producto.notas || '')    : '';
+
+  modalProducto.classList.remove('hidden');
+  document.getElementById('prod-nombre').focus();
+}
+
+function closeProductoModal() {
+  modalProducto.classList.add('hidden');
+  editingProductoId = null;
+  _cotizInputsJSON  = '';
+}
+
+async function guardarProducto() {
+  const nombre        = String(document.getElementById('prod-nombre').value).trim().slice(0, 100);
+  const material      = String(document.getElementById('prod-material').value).trim().slice(0, 50);
+  const qty           = Math.max(1, parseInt(document.getElementById('prod-qty').value) || 1);
+  const costoUnidad   = Math.max(0, parseFloat(document.getElementById('prod-costo').value) || 0);
+  const precioSugerido = Math.max(0, parseFloat(document.getElementById('prod-precio').value) || 0);
+  const notas         = String(document.getElementById('prod-notas').value).trim().slice(0, 200);
+
+  if (!nombre) {
+    showToast('El nombre del producto es obligatorio.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-producto');
+  btn.disabled    = true;
+  btn.textContent = 'Guardando…';
+
+  const data = {
+    uid: currentUser.uid, nombre, material, qty,
+    costoUnidad, precioSugerido, notas,
+    inputs: _cotizInputsJSON.slice(0, 5000),
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    if (editingProductoId) {
+      await updateDoc(doc(db, 'productos', editingProductoId), data);
+      showToast('Producto actualizado', 'success');
+    } else {
+      await addDoc(collection(db, 'productos'), { ...data, createdAt: serverTimestamp() });
+      showToast('Producto guardado', 'success');
+    }
+    closeProductoModal();
+  } catch (err) {
+    console.error('[firestore productos] Error al guardar:', err.code);
+    showToast('Error al guardar. Intenta de nuevo.', 'error');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = editingProductoId ? 'Guardar Cambios' : 'Guardar Producto';
+  }
+}
+
+// ── Productos: guardar desde cotizaciones ────────────────────────────────────
+
+function guardarProductoCotizacion() {
+  const inp = getCotizInputs();
+  const res = calcCotizacion(inp);
+
+  // Snapshot del form para poder recargar después
+  _cotizInputsJSON = JSON.stringify(inp);
+
+  // Pre-fill modal
+  editingProductoId = null;
+  document.getElementById('modal-producto-title').textContent = 'Guardar como Producto';
+  document.getElementById('btn-submit-producto').textContent  = 'Guardar Producto';
+  document.getElementById('prod-nombre').value    = inp.nombre;
+  document.getElementById('prod-material').value  = inp.material;
+  document.getElementById('prod-qty').value       = inp.qty;
+  document.getElementById('prod-costo').value     = res.perUnit.toFixed(4);
+  document.getElementById('prod-precio').value    = res.price60.toFixed(2);
+  document.getElementById('prod-notas').value     = '';
+
+  modalProducto.classList.remove('hidden');
+  document.getElementById('prod-nombre').focus();
+}
+
+// ── Productos: cargar en cotizaciones ────────────────────────────────────────
+
+function cargarProductoEnCotizacion(producto) {
+  if (!producto.inputs) return;
+  let inp;
+  try {
+    inp = JSON.parse(producto.inputs);
+  } catch {
+    showToast('No se pudo cargar la cotización guardada.', 'error');
+    return;
+  }
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+  };
+
+  setVal('cq-nombre',      inp.nombre   || '');
+  setVal('cq-material',    inp.material || '');
+  setVal('cq-qty',         inp.qty);
+  setVal('cq-fil-cost',    inp.filCostPerKg);
+  setVal('cq-fil-g',       inp.filGrams);
+  setVal('cq-print-hr',    inp.printHrs);
+  setVal('cq-labor-min',   inp.laborMin);
+  setVal('cq-shipping',    inp.shippingCost);
+  setVal('cq-adv-eff',     inp.efficiency);
+  setVal('cq-adv-labor',   inp.laborRate);
+  setVal('cq-adv-printer', inp.printerRate);
+  setVal('cq-custom-margin', inp.customMargin);
+
+  // Restaurar filas de hardware
+  const hwRows  = document.getElementById('cq-hw-rows')?.querySelectorAll('.grid') || [];
+  (inp.hwRows || []).forEach((r, i) => {
+    if (hwRows[i]) {
+      const costEl = hwRows[i].querySelector('.cq-hw-cost');
+      const qtyEl  = hwRows[i].querySelector('.cq-hw-qty');
+      if (costEl) costEl.value = r.cost || '';
+      if (qtyEl)  qtyEl.value  = r.qty  || 1;
+    }
+  });
+
+  // Restaurar filas de empaque
+  const pkgRows = document.getElementById('cq-pkg-rows')?.querySelectorAll('.grid') || [];
+  (inp.pkgRows || []).forEach((r, i) => {
+    if (pkgRows[i]) {
+      const costEl = pkgRows[i].querySelector('.cq-pkg-cost');
+      const qtyEl  = pkgRows[i].querySelector('.cq-pkg-qty');
+      if (costEl) costEl.value = r.cost || '';
+      if (qtyEl)  qtyEl.value  = r.qty  || 1;
+    }
+  });
+
+  switchTab('cotizaciones');
+  recalcularCotizacion();
+  showToast(`"${producto.nombre}" cargado en la calculadora`, 'success');
+}
+
+// ── Productos: event listeners ────────────────────────────────────────────────
+
+document.getElementById('btn-nuevo-producto').addEventListener('click',         () => openProductoModal());
+document.getElementById('btn-close-modal-producto').addEventListener('click',   closeProductoModal);
+document.getElementById('btn-submit-producto').addEventListener('click',        guardarProducto);
+document.getElementById('btn-guardar-producto-cotiz').addEventListener('click', guardarProductoCotizacion);
+modalProducto.addEventListener('click', e => { if (e.target === modalProducto) closeProductoModal(); });
 
 // ── Cotizaciones: event listeners ─────────────────────────────────────────────
 
