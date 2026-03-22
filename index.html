@@ -172,6 +172,14 @@
           </svg>
           Ventas
         </button>
+        <button id="tab-btn-cotizaciones"
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          Precios
+        </button>
       </div>
 
       <!-- ── Tab: Dashboard ─────────────────────────────────── -->
@@ -460,6 +468,303 @@
         </div>
 
       </div><!-- /tab-ventas -->
+
+      <!-- ── Tab: Cotizaciones ──────────────────────────────── -->
+      <div id="tab-cotizaciones" class="hidden space-y-6">
+
+        <div>
+          <h2 class="text-xl font-bold text-white">Cotizador de Precios</h2>
+          <p class="text-sm text-gray-500 mt-0.5">Calcula costo y precio de venta · lógica basada en Print Farm Academy Pricing Worksheet</p>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+          <!-- ── Entradas ── -->
+          <div class="xl:col-span-2 space-y-5">
+
+            <!-- Información del producto -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5 space-y-4">
+              <h3 class="text-sm font-semibold text-white">Información del Producto</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-nombre">Nombre del producto</label>
+                  <input id="cq-nombre" type="text" maxlength="100" placeholder="ej. Figura dragón PLA 15cm"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-material">Material</label>
+                  <select id="cq-material"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    <option>PLA</option><option selected>PETG</option><option>ABS</option>
+                    <option>ASA</option><option>Resina</option><option>Nylon</option>
+                    <option>TPU</option><option>PETG-CF</option><option>Otro</option>
+                  </select>
+                </div>
+              </div>
+              <div class="w-36">
+                <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-qty">Unidades a calcular</label>
+                <input id="cq-qty" type="number" min="1" value="1"
+                  class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+              </div>
+            </div>
+
+            <!-- Costos de impresión -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5 space-y-4">
+              <h3 class="text-sm font-semibold text-white">Costos de Impresión</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-fil-cost">Filamento ($/kg)</label>
+                  <input id="cq-fil-cost" type="number" min="0" step="0.01" value="40"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-fil-g">Filamento req. (g)</label>
+                  <input id="cq-fil-g" type="number" min="0" step="0.1" placeholder="ej. 8"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-print-hr">Tiempo impresión (hr)</label>
+                  <input id="cq-print-hr" type="number" min="0" step="0.1" placeholder="ej. 1.5"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-labor-min">Mano de obra (min)</label>
+                  <input id="cq-labor-min" type="number" min="0" step="1" placeholder="ej. 10"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+              </div>
+            </div>
+
+            <!-- Materiales adicionales (hardware) -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5 space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Materiales Adicionales</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Tornillos, insertos, adhesivos u otros componentes comprados</p>
+              </div>
+              <div class="grid gap-2" style="grid-template-columns:1fr 68px 86px 68px">
+                <span class="text-xs text-gray-500 pl-1">Nombre</span>
+                <span class="text-xs text-gray-500 pl-1">Cant.</span>
+                <span class="text-xs text-gray-500 pl-1">$/Unidad</span>
+                <span class="text-xs text-gray-500 text-right pr-1">Total</span>
+              </div>
+              <div id="cq-hw-rows" class="space-y-2"></div>
+              <div class="border-t border-gray-700/40 pt-2 flex items-center justify-end gap-1.5">
+                <span class="text-xs text-gray-500">Subtotal materiales adicionales:</span>
+                <span id="cq-hw-subtotal" class="text-xs font-mono font-medium text-gray-300">$0.00</span>
+              </div>
+            </div>
+
+            <!-- Empaque y envío -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5 space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Empaque y Envío</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Caja, burbuja, cinta, hoja de envío, postaje</p>
+              </div>
+              <div class="grid gap-2" style="grid-template-columns:1fr 68px 86px 68px">
+                <span class="text-xs text-gray-500 pl-1">Nombre</span>
+                <span class="text-xs text-gray-500 pl-1">Cant.</span>
+                <span class="text-xs text-gray-500 pl-1">$/Unidad</span>
+                <span class="text-xs text-gray-500 text-right pr-1">Total</span>
+              </div>
+              <div id="cq-pkg-rows" class="space-y-2"></div>
+              <div class="grid gap-2 items-center" style="grid-template-columns:1fr 68px 86px 68px">
+                <span class="text-xs text-gray-400 pl-1">Envío estimado</span>
+                <span></span>
+                <input id="cq-shipping" type="number" min="0" step="0.01" placeholder="0.00"
+                  class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+                <span id="cq-shipping-total" class="text-xs font-mono text-gray-500 text-right pr-1">—</span>
+              </div>
+              <div class="border-t border-gray-700/40 pt-2 flex items-center justify-end gap-1.5">
+                <span class="text-xs text-gray-500">Subtotal empaque y envío:</span>
+                <span id="cq-pkg-subtotal" class="text-xs font-mono font-medium text-gray-300">$0.00</span>
+              </div>
+            </div>
+
+            <!-- Configuración avanzada (collapsible) -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700/50 overflow-hidden">
+              <button id="btn-cq-adv"
+                class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-700/20 transition-colors cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span class="text-sm font-medium text-gray-300">Configuración Avanzada</span>
+                </div>
+                <svg id="cq-adv-chevron" class="w-4 h-4 text-gray-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              <div id="cq-adv-panel" class="hidden border-t border-gray-700/50 p-5 space-y-5">
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-adv-eff">Factor eficiencia material</label>
+                    <input id="cq-adv-eff" type="number" min="1" max="3" step="0.01" value="1.1"
+                      class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    <p class="text-xs text-gray-600 mt-1">1.1 = 10% de desperdicio</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1" for="cq-adv-labor">Tarifa mano de obra ($/hr)</label>
+                    <input id="cq-adv-labor" type="number" min="0" step="0.5" value="20"
+                      class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-medium text-gray-400" for="cq-adv-printer">Tarifa impresora ($/hr)</label>
+                    <button id="btn-cq-printer-calc" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer">
+                      Calcular desde costos del equipo ↓
+                    </button>
+                  </div>
+                  <input id="cq-adv-printer" type="number" min="0" step="0.001" value="0.31"
+                    class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+
+                <!-- Calculadora de tarifa de impresora -->
+                <div id="cq-printer-calc-panel" class="hidden bg-gray-700/30 border border-gray-600/40 rounded-xl p-4 space-y-4">
+                  <p class="text-xs font-semibold text-gray-400">Calculadora de Tarifa de Impresora</p>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-cost">Costo impresora ($)</label>
+                      <input id="cq-pc-cost" type="number" min="0" value="3000"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-upfront">Costos adicionales ($)</label>
+                      <input id="cq-pc-upfront" type="number" min="0" value="1000"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-maint">Mantenimiento anual ($)</label>
+                      <input id="cq-pc-maint" type="number" min="0" value="150"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-life">Vida útil (años)</label>
+                      <input id="cq-pc-life" type="number" min="1" max="20" value="5"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-uptime">Tiempo en uso (%)</label>
+                      <input id="cq-pc-uptime" type="number" min="1" max="100" value="50"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-power">Consumo eléctrico (W)</label>
+                      <input id="cq-pc-power" type="number" min="0" value="150"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-elec">Electricidad ($/kWh)</label>
+                      <input id="cq-pc-elec" type="number" min="0" step="0.001" value="0.14"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-500 mb-1" for="cq-pc-buffer">Factor buffer</label>
+                      <input id="cq-pc-buffer" type="number" min="1" max="5" step="0.1" value="1.3"
+                        class="w-full bg-gray-700/60 border border-gray-600/60 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between pt-1 border-t border-gray-600/40">
+                    <div>
+                      <p class="text-xs text-gray-500">Tarifa calculada</p>
+                      <p id="cq-pc-result" class="text-base font-mono font-bold text-indigo-400">—</p>
+                    </div>
+                    <button id="btn-cq-use-rate"
+                      class="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-700/50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer">
+                      ← Usar esta tarifa
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div><!-- /entradas -->
+
+          <!-- ── Resultados (sticky) ── -->
+          <div class="xl:col-span-1">
+            <div class="sticky top-24 space-y-4">
+
+              <!-- Desglose de costos -->
+              <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5 space-y-4">
+                <h3 class="text-sm font-semibold text-white">Desglose de Costos</h3>
+                <div class="space-y-2.5">
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Materiales</span>
+                    <span id="cq-r-materials" class="font-mono text-gray-300">—</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Mano de obra</span>
+                    <span id="cq-r-labor" class="font-mono text-gray-300">—</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Máquina</span>
+                    <span id="cq-r-machine" class="font-mono text-gray-300">—</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Empaque y envío</span>
+                    <span id="cq-r-packaging" class="font-mono text-gray-300">—</span>
+                  </div>
+                </div>
+                <div class="border-t border-gray-700/50 pt-3 space-y-1">
+                  <div class="flex justify-between items-baseline">
+                    <span class="text-sm font-semibold text-white">Costo Total (Landed)</span>
+                    <span id="cq-r-landed" class="text-xl font-bold font-mono text-white">—</span>
+                  </div>
+                  <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Por unidad</span>
+                    <span id="cq-r-per-unit" class="text-xs font-mono text-gray-400">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Precios sugeridos -->
+              <div class="bg-indigo-900/20 border border-indigo-700/40 rounded-xl p-5 space-y-4">
+                <h3 class="text-sm font-semibold text-indigo-300">Precios de Venta Sugeridos</h3>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-400">Margen 50%</span>
+                    <span id="cq-r-50" class="text-base font-mono font-semibold text-gray-300">—</span>
+                  </div>
+                  <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-400">Margen 60%</span>
+                    <span id="cq-r-60" class="text-lg font-mono font-semibold text-indigo-300">—</span>
+                  </div>
+                  <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-400">Margen 70%</span>
+                    <span id="cq-r-70" class="text-xl font-mono font-bold text-indigo-200">—</span>
+                  </div>
+                </div>
+                <div class="border-t border-indigo-700/30 pt-3 space-y-2">
+                  <label class="block text-xs text-gray-500">Margen personalizado</label>
+                  <div class="flex items-center gap-2">
+                    <input id="cq-custom-margin" type="number" min="1" max="99" placeholder="%"
+                      class="w-20 bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+                    <span class="text-gray-500 text-sm">→</span>
+                    <span id="cq-r-custom" class="text-base font-mono font-semibold text-gray-200 flex-1 text-right">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gray-800/40 rounded-xl border border-gray-700/30 px-4 py-3">
+                <p class="text-xs text-gray-500 leading-relaxed">
+                  <strong class="text-gray-400">Margen ≠ Markup.</strong>
+                  50% margen = vendes a 2× el costo.
+                  60% = 2.5×. 70% = 3.33×.
+                  Los precios mostrados son para la cantidad indicada.
+                </p>
+              </div>
+
+            </div>
+          </div><!-- /resultados -->
+
+        </div><!-- /grid -->
+      </div><!-- /tab-cotizaciones -->
 
     </main>
   </div>

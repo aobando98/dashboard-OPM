@@ -213,7 +213,7 @@ let activeTab = 'dashboard';
 
 function switchTab(tab) {
   activeTab = tab;
-  const tabs    = ['dashboard', 'comparacion', 'ventas'];
+  const tabs    = ['dashboard', 'comparacion', 'ventas', 'cotizaciones'];
   const btnBase = 'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer';
 
   tabs.forEach(t => {
@@ -227,9 +227,10 @@ function switchTab(tab) {
   });
 }
 
-document.getElementById('tab-btn-dashboard').addEventListener('click',   () => switchTab('dashboard'));
-document.getElementById('tab-btn-comparacion').addEventListener('click', () => switchTab('comparacion'));
-document.getElementById('tab-btn-ventas').addEventListener('click',      () => switchTab('ventas'));
+document.getElementById('tab-btn-dashboard').addEventListener('click',     () => switchTab('dashboard'));
+document.getElementById('tab-btn-comparacion').addEventListener('click',   () => switchTab('comparacion'));
+document.getElementById('tab-btn-ventas').addEventListener('click',        () => switchTab('ventas'));
+document.getElementById('tab-btn-cotizaciones').addEventListener('click',  () => switchTab('cotizaciones'));
 
 // ── Cotizador rápido (in-memory, sin Firestore) ───────────────────────────────
 
@@ -1189,6 +1190,228 @@ document.getElementById('btn-nueva-venta').addEventListener('click',       () =>
 document.getElementById('btn-close-modal-venta').addEventListener('click', closeVentaModal);
 document.getElementById('btn-submit-venta').addEventListener('click',      guardarVenta);
 modalVenta.addEventListener('click', e => { if (e.target === modalVenta) closeVentaModal(); });
+
+// ── Cotizaciones: inicializar filas dinámicas ─────────────────────────────────
+
+function initCotizRows() {
+  // 5 filas de hardware/materiales extra
+  const hwContainer = document.getElementById('cq-hw-rows');
+  if (hwContainer && hwContainer.children.length === 0) {
+    for (let i = 0; i < 5; i++) {
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-3 gap-2 items-center';
+      row.innerHTML = `
+        <input type="text"   placeholder="Material extra"
+          class="cq-hw-name col-span-1 bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+        <input type="number" placeholder="0.00" min="0" step="0.01"
+          class="cq-hw-cost bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+        <input type="number" placeholder="1" min="1" step="1"
+          class="cq-hw-qty  bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+      `;
+      hwContainer.appendChild(row);
+    }
+  }
+
+  // 5 filas de empaque
+  const pkgContainer = document.getElementById('cq-pkg-rows');
+  if (pkgContainer && pkgContainer.children.length === 0) {
+    for (let i = 0; i < 5; i++) {
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-3 gap-2 items-center';
+      row.innerHTML = `
+        <input type="text"   placeholder="Ítem de empaque"
+          class="cq-pkg-name col-span-1 bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+        <input type="number" placeholder="0.00" min="0" step="0.01"
+          class="cq-pkg-cost bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+        <input type="number" placeholder="1" min="1" step="1"
+          class="cq-pkg-qty  bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+      `;
+      pkgContainer.appendChild(row);
+    }
+  }
+}
+
+// ── Cotizaciones: calcular tarifa de impresora ────────────────────────────────
+
+function calcPrinterRate(adv) {
+  // Costo de vida = (costo impresora + upfront extra) + (mantenimiento anual × vida)
+  const lifetimeCost = (adv.printerCost + adv.additionalUpfront) + (adv.annualMaintenance * adv.printerLife);
+  // Horas activas por año = 8760 × uptime%
+  const uptimeHrsPerYr = 8760 * (adv.uptime / 100);
+  // Costo de capital por hora
+  const capitalPerHr = lifetimeCost / (uptimeHrsPerYr * adv.printerLife);
+  // Costo eléctrico por hora
+  const electricalPerHr = (adv.powerW / 1000) * adv.electricityCost;
+  // Tarifa final con buffer
+  return (capitalPerHr + electricalPerHr) * adv.bufferFactor;
+}
+
+// ── Cotizaciones: leer todos los inputs ───────────────────────────────────────
+
+function getCotizInputs() {
+  const v = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const s = id => String(document.getElementById(id)?.value || '').trim();
+
+  // Filas de hardware extra
+  const hwRows = [...(document.getElementById('cq-hw-rows')?.querySelectorAll('.grid') || [])].map(row => ({
+    cost: parseFloat(row.querySelector('.cq-hw-cost')?.value) || 0,
+    qty:  Math.max(1, parseInt(row.querySelector('.cq-hw-qty')?.value)  || 1),
+  }));
+
+  // Filas de empaque
+  const pkgRows = [...(document.getElementById('cq-pkg-rows')?.querySelectorAll('.grid') || [])].map(row => ({
+    cost: parseFloat(row.querySelector('.cq-pkg-cost')?.value) || 0,
+    qty:  Math.max(1, parseInt(row.querySelector('.cq-pkg-qty')?.value)  || 1),
+  }));
+
+  return {
+    // Producto
+    qty: Math.max(1, parseInt(document.getElementById('cq-qty')?.value) || 1),
+    // Costos de impresión
+    filCostPerKg: v('cq-fil-cost'),
+    filGrams:     v('cq-fil-g'),
+    printHrs:     v('cq-print-hr'),
+    laborMin:     v('cq-labor-min'),
+    // Materiales extra y empaque
+    hwRows,
+    pkgRows,
+    shippingCost: v('cq-shipping'),
+    // Avanzados
+    efficiency:   Math.max(0.01, v('cq-adv-eff')  || 1.1),
+    laborRate:    v('cq-adv-labor')                || 20,
+    printerRate:  v('cq-adv-printer')              || 0.31,
+    // Margen personalizado
+    customMargin: v('cq-custom-margin') || 65,
+  };
+}
+
+// ── Cotizaciones: cálculo principal ───────────────────────────────────────────
+
+function calcCotizacion(inp) {
+  // 1. Costo de filamento: (g / 1000) × $/kg × factor eficiencia
+  const filamentCost = (inp.filGrams / 1000) * inp.filCostPerKg * inp.efficiency;
+
+  // 2. Materiales extra (hardware)
+  const hwCost = inp.hwRows.reduce((sum, r) => sum + r.cost * r.qty, 0);
+
+  // 3. Costo de máquina (tiempo de impresión × tarifa $/hr)
+  const machineCost = inp.printHrs * inp.printerRate;
+
+  // 4. Costo laboral: (min / 60) × tarifa $/hr
+  const laborCost = (inp.laborMin / 60) * inp.laborRate;
+
+  // 5. Costo de empaque (materiales)
+  const pkgMaterials = inp.pkgRows.reduce((sum, r) => sum + r.cost * r.qty, 0);
+  const packagingCost = pkgMaterials + inp.shippingCost;
+
+  // 6. Costo total desembarcado por lote
+  const totalLanded = filamentCost + hwCost + machineCost + laborCost + packagingCost;
+  const perUnit     = inp.qty > 0 ? totalLanded / inp.qty : totalLanded;
+
+  // 7. Precios sugeridos a distintos márgenes (precio = costo / (1 - margen))
+  const priceAt = (margin) => perUnit / (1 - margin / 100);
+
+  return {
+    materials:  filamentCost + hwCost,
+    labor:      laborCost,
+    machine:    machineCost,
+    packaging:  packagingCost,
+    landed:     totalLanded,
+    perUnit,
+    price50:    priceAt(50),
+    price60:    priceAt(60),
+    price70:    priceAt(70),
+    priceCustom: priceAt(inp.customMargin),
+  };
+}
+
+// ── Cotizaciones: actualizar panel de resultados ──────────────────────────────
+
+function recalcularCotizacion() {
+  const inp  = getCotizInputs();
+  const res  = calcCotizacion(inp);
+  const fmt  = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Subtotales en panel de resultados
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('cq-r-materials', fmt(res.materials));
+  set('cq-r-labor',     fmt(res.labor));
+  set('cq-r-machine',   fmt(res.machine));
+  set('cq-r-packaging', fmt(res.packaging));
+  set('cq-r-landed',    fmt(res.landed));
+  set('cq-r-per-unit',  fmt(res.perUnit));
+  set('cq-r-50',        fmt(res.price50));
+  set('cq-r-60',        fmt(res.price60));
+  set('cq-r-70',        fmt(res.price70));
+  set('cq-r-custom',    fmt(res.priceCustom));
+
+  // Actualizar subtotales inline del formulario
+  const hwSub  = inp.hwRows.reduce((s, r)  => s + r.cost * r.qty, 0);
+  const pkgSub = inp.pkgRows.reduce((s, r) => s + r.cost * r.qty, 0);
+  const hwSubEl  = document.getElementById('cq-hw-subtotal');
+  const pkgSubEl = document.getElementById('cq-pkg-subtotal');
+  if (hwSubEl)  hwSubEl.textContent  = fmt(hwSub);
+  if (pkgSubEl) pkgSubEl.textContent = fmt(pkgSub + inp.shippingCost);
+}
+
+// ── Cotizaciones: calculadora de tarifa de impresora ─────────────────────────
+
+function updatePrinterCalcResult() {
+  const v = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const adv = {
+    printerCost:        v('cq-pc-cost'),
+    additionalUpfront:  v('cq-pc-upfront'),
+    annualMaintenance:  v('cq-pc-maint'),
+    printerLife:        Math.max(1, v('cq-pc-life')   || 3),
+    uptime:             Math.max(1, v('cq-pc-uptime') || 50),
+    powerW:             v('cq-pc-power'),
+    electricityCost:    v('cq-pc-elec'),
+    bufferFactor:       Math.max(1, v('cq-pc-buffer') || 1.35),
+  };
+  const rate = calcPrinterRate(adv);
+  const resultEl = document.getElementById('cq-pc-result');
+  if (resultEl) {
+    resultEl.textContent = `$${rate.toFixed(4)}/hr`;
+  }
+  return rate;
+}
+
+// ── Cotizaciones: event listeners ─────────────────────────────────────────────
+
+const tabCotiz = document.getElementById('tab-cotizaciones');
+if (tabCotiz) {
+  // Reactividad: cualquier cambio en el tab recalcula
+  tabCotiz.addEventListener('input', () => {
+    updatePrinterCalcResult();
+    recalcularCotizacion();
+  });
+
+  // Toggle panel avanzado
+  document.getElementById('btn-cq-adv')?.addEventListener('click', () => {
+    const panel = document.getElementById('cq-adv-panel');
+    panel?.classList.toggle('hidden');
+  });
+
+  // Toggle calculadora de impresora
+  document.getElementById('btn-cq-printer-calc')?.addEventListener('click', () => {
+    const panel = document.getElementById('cq-printer-calc-panel');
+    panel?.classList.toggle('hidden');
+  });
+
+  // Botón "Usar esta tarifa"
+  document.getElementById('btn-cq-use-rate')?.addEventListener('click', () => {
+    const rate = updatePrinterCalcResult();
+    const field = document.getElementById('cq-adv-printer');
+    if (field) {
+      field.value = rate.toFixed(4);
+      recalcularCotizacion();
+    }
+  });
+}
+
+// Inicialización al cargar
+initCotizRows();
+recalcularCotizacion();
 
 // ── Notificaciones Toast ──────────────────────────────────────────────────────
 function showToast(message, type = 'success') {
