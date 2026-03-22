@@ -347,19 +347,38 @@
       <div id="tab-comparacion" class="hidden space-y-6">
 
         <div>
-          <h2 class="text-xl font-bold text-white">Comparación de Proveedores</h2>
-          <p class="text-sm text-gray-500 mt-0.5">Artículos con el mismo nombre agrupados por proveedor · el más económico se resalta en verde</p>
+          <h2 class="text-xl font-bold text-white">Comparar Proveedores</h2>
+          <p class="text-sm text-gray-500 mt-0.5">Cotiza precios al vuelo o compara desde tu inventario</p>
         </div>
 
-        <!-- Tip -->
-        <div class="bg-indigo-900/20 border border-indigo-700/40 rounded-xl px-4 py-3 flex items-start gap-3">
-          <svg class="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <p class="text-xs text-indigo-300">
-            Para comparar precios, agrega el mismo artículo dos o más veces en el inventario, cada uno con un proveedor diferente. El sistema los agrupará aquí automáticamente.
-          </p>
+        <!-- ── Cotizador rápido ── -->
+        <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-6 space-y-4">
+          <div>
+            <h3 class="font-semibold text-white text-sm">Cotizador rápido</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Compara precios sin guardar en inventario · los datos se borran al cerrar la página</p>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="cotiz-nombre" type="text" placeholder="Artículo (ej. PLA 1kg)" maxlength="100"
+              class="flex-1 bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+            <input id="cotiz-proveedor" type="text" placeholder="Proveedor" maxlength="100"
+              class="flex-1 bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+            <input id="cotiz-precio" type="number" placeholder="Precio USD" min="0" max="999999" step="0.01"
+              class="w-36 bg-gray-700/60 border border-gray-600/60 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors">
+            <button id="btn-add-cotizacion"
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap">
+              + Agregar
+            </button>
+          </div>
+
+          <div id="cotizacion-entries"></div>
+          <div id="cotizacion-results"></div>
+        </div>
+
+        <!-- ── Desde el inventario ── -->
+        <div>
+          <h3 class="font-semibold text-white text-sm">Desde el inventario</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Artículos con el mismo nombre y distintos proveedores se agrupan automáticamente · el más económico se resalta en verde</p>
         </div>
 
         <div id="comparacion-container"></div>

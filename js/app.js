@@ -20,6 +20,8 @@ let chartInventario     = null;
 let editingItemId       = null;
 let pendingDeleteId     = null;
 let unsubscribeSnapshot = null;
+let cotizacionItems     = [];
+let cotizacionNextId    = 0;
 
 const PRESUPUESTO = 50_000; // USD — ajusta según tu negocio
 
@@ -218,6 +220,174 @@ function switchTab(tab) {
 
 document.getElementById('tab-btn-dashboard').addEventListener('click', () => switchTab('dashboard'));
 document.getElementById('tab-btn-comparacion').addEventListener('click', () => switchTab('comparacion'));
+
+// ── Cotizador rápido (in-memory, sin Firestore) ───────────────────────────────
+
+function addCotizacionEntry() {
+  const nombre   = document.getElementById('cotiz-nombre').value.trim().slice(0, 100);
+  const proveedor = document.getElementById('cotiz-proveedor').value.trim().slice(0, 100);
+  const precio   = parseFloat(document.getElementById('cotiz-precio').value);
+
+  if (!nombre || !proveedor || !Number.isFinite(precio) || precio < 0) return;
+
+  cotizacionItems.push({ id: cotizacionNextId++, nombre, proveedor, precio });
+  document.getElementById('cotiz-nombre').value    = '';
+  document.getElementById('cotiz-proveedor').value = '';
+  document.getElementById('cotiz-precio').value    = '';
+  document.getElementById('cotiz-nombre').focus();
+  renderCotizacion();
+}
+
+document.getElementById('btn-add-cotizacion').addEventListener('click', addCotizacionEntry);
+document.getElementById('cotiz-precio').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addCotizacionEntry();
+});
+
+function renderCotizacion() {
+  const entriesEl = document.getElementById('cotizacion-entries');
+  const resultsEl = document.getElementById('cotizacion-results');
+  if (!entriesEl || !resultsEl) return;
+
+  while (entriesEl.firstChild) entriesEl.removeChild(entriesEl.firstChild);
+  while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+
+  if (cotizacionItems.length === 0) return;
+
+  // ── Tabla de entradas ──
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'overflow-x-auto';
+  const table = document.createElement('table');
+  table.className = 'w-full text-sm';
+
+  const thead = document.createElement('thead');
+  const hrow  = document.createElement('tr');
+  ['Artículo', 'Proveedor', 'Precio USD', ''].forEach(label => {
+    const th = document.createElement('th');
+    th.className = 'text-left text-xs font-medium text-gray-500 pb-2 pr-4';
+    th.textContent = label;
+    hrow.appendChild(th);
+  });
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  cotizacionItems.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.className = 'border-t border-gray-700/50';
+
+    const tdN = document.createElement('td');
+    tdN.className = 'py-2 pr-4 text-gray-200';
+    tdN.textContent = item.nombre;
+
+    const tdP = document.createElement('td');
+    tdP.className = 'py-2 pr-4 text-gray-400';
+    tdP.textContent = item.proveedor;
+
+    const tdC = document.createElement('td');
+    tdC.className = 'py-2 pr-4 text-gray-200 font-mono';
+    tdC.textContent = `$${item.precio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const tdDel = document.createElement('td');
+    const btnDel = document.createElement('button');
+    btnDel.className = 'text-gray-600 hover:text-red-400 transition-colors cursor-pointer';
+    btnDel.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>`;
+    btnDel.addEventListener('click', () => {
+      cotizacionItems = cotizacionItems.filter(i => i.id !== item.id);
+      renderCotizacion();
+    });
+    tdDel.appendChild(btnDel);
+
+    tr.append(tdN, tdP, tdC, tdDel);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+
+  const clearRow = document.createElement('div');
+  clearRow.className = 'flex justify-end mt-2';
+  const btnClear = document.createElement('button');
+  btnClear.className = 'text-xs text-gray-600 hover:text-red-400 transition-colors cursor-pointer';
+  btnClear.textContent = 'Limpiar todo';
+  btnClear.addEventListener('click', () => { cotizacionItems = []; renderCotizacion(); });
+  clearRow.appendChild(btnClear);
+
+  entriesEl.append(tableWrap, clearRow);
+
+  // ── Comparación agrupada ──
+  const grupos = {};
+  cotizacionItems.forEach(item => {
+    const key = item.nombre.trim().toLowerCase();
+    if (!grupos[key]) grupos[key] = { nombre: item.nombre, items: [] };
+    grupos[key].items.push(item);
+  });
+
+  const comparables = Object.values(grupos).filter(g => {
+    const provs = new Set(g.items.map(i => i.proveedor.trim().toLowerCase()));
+    return provs.size > 1;
+  });
+
+  if (comparables.length === 0) return;
+
+  const secLabel = document.createElement('p');
+  secLabel.className = 'text-xs font-medium text-gray-500 uppercase tracking-wide pt-2';
+  secLabel.textContent = 'Resultado';
+  resultsEl.appendChild(secLabel);
+
+  const fmt = v => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  comparables.forEach(grupo => {
+    const sorted   = [...grupo.items].sort((a, b) => a.precio - b.precio);
+    const minPrecio = sorted[0].precio;
+    const maxPrecio = sorted[sorted.length - 1].precio;
+    const ahorro   = maxPrecio - minPrecio;
+    const pct      = maxPrecio > 0 ? Math.round((ahorro / maxPrecio) * 100) : 0;
+
+    const card = document.createElement('div');
+    card.className = 'bg-gray-700/40 border border-gray-600/50 rounded-xl overflow-hidden mt-3';
+
+    const cardHead = document.createElement('div');
+    cardHead.className = 'flex items-center justify-between px-4 py-3 border-b border-gray-600/50';
+    const cardTitle = document.createElement('span');
+    cardTitle.className = 'font-medium text-white text-sm';
+    cardTitle.textContent = grupo.nombre;
+    const savBadge = document.createElement('span');
+    savBadge.className = 'text-xs text-emerald-400 font-medium';
+    savBadge.textContent = `Ahorro potencial: ${fmt(ahorro)} (${pct}%)`;
+    cardHead.append(cardTitle, savBadge);
+    card.appendChild(cardHead);
+
+    sorted.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = `flex items-center justify-between px-4 py-3${idx === 0 ? ' bg-emerald-900/20' : ''}`;
+
+      const left = document.createElement('div');
+      left.className = 'flex items-center gap-2';
+
+      if (idx === 0) {
+        const badge = document.createElement('span');
+        badge.className = 'text-xs bg-emerald-700/50 text-emerald-300 px-2 py-0.5 rounded-full font-medium';
+        badge.textContent = 'Mejor precio';
+        left.appendChild(badge);
+      }
+
+      const provName = document.createElement('span');
+      provName.className = `text-sm ${idx === 0 ? 'text-emerald-300' : 'text-gray-300'}`;
+      provName.textContent = item.proveedor;
+      left.appendChild(provName);
+
+      const precioEl = document.createElement('span');
+      precioEl.className = `text-sm font-mono font-medium ${idx === 0 ? 'text-emerald-300' : 'text-gray-400'}`;
+      precioEl.textContent = fmt(item.precio);
+
+      row.append(left, precioEl);
+      card.appendChild(row);
+    });
+
+    resultsEl.appendChild(card);
+  });
+}
 
 // ── Comparación de Proveedores ────────────────────────────────────────────────
 function renderComparacion() {
