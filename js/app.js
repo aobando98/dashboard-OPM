@@ -22,6 +22,10 @@ let pendingDeleteId     = null;
 let unsubscribeSnapshot = null;
 let cotizacionItems     = [];
 let cotizacionNextId    = 0;
+let ventasItems         = [];
+let unsubscribeVentas   = null;
+let editingVentaId      = null;
+let pendingDeleteType   = 'inventario';
 
 const PRESUPUESTO = 50_000; // USD — ajusta según tu negocio
 
@@ -143,7 +147,9 @@ document.getElementById('btn-google-signin').addEventListener('click', async () 
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
   if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+  if (unsubscribeVentas)   { unsubscribeVentas();   unsubscribeVentas   = null; }
   inventarioItems = [];
+  ventasItems     = [];
   await logOut();
 });
 
@@ -165,9 +171,12 @@ onAuthStateChanged(auth, (user) => {
 
     showScreen('dashboard');
     subscribeInventario();
+    subscribeVentas();
   } else {
     if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+    if (unsubscribeVentas)   { unsubscribeVentas();   unsubscribeVentas   = null; }
     inventarioItems = [];
+    ventasItems     = [];
     showScreen('login');
   }
 });
@@ -204,7 +213,7 @@ let activeTab = 'dashboard';
 
 function switchTab(tab) {
   activeTab = tab;
-  const tabs    = ['dashboard', 'comparacion'];
+  const tabs    = ['dashboard', 'comparacion', 'ventas'];
   const btnBase = 'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer';
 
   tabs.forEach(t => {
@@ -218,8 +227,9 @@ function switchTab(tab) {
   });
 }
 
-document.getElementById('tab-btn-dashboard').addEventListener('click', () => switchTab('dashboard'));
+document.getElementById('tab-btn-dashboard').addEventListener('click',   () => switchTab('dashboard'));
 document.getElementById('tab-btn-comparacion').addEventListener('click', () => switchTab('comparacion'));
+document.getElementById('tab-btn-ventas').addEventListener('click',      () => switchTab('ventas'));
 
 // ── Cotizador rápido (in-memory, sin Firestore) ───────────────────────────────
 
@@ -894,11 +904,17 @@ document.getElementById('btn-cancel-delete').addEventListener('click',  closeDel
 document.getElementById('btn-confirm-delete').addEventListener('click', handleDelete);
 modalDelete.addEventListener('click', e => { if (e.target === modalDelete) closeDeleteModal(); });
 
-function openDeleteModal(id) {
-  pendingDeleteId = id;
-  const item    = inventarioItems.find(i => i.id === id);
-  const nameEl  = document.getElementById('delete-item-name');
-  nameEl.textContent = item ? `"${item.nombre}"` : 'este artículo';
+function openDeleteModal(id, type = 'inventario') {
+  pendingDeleteId   = id;
+  pendingDeleteType = type;
+  const nameEl = document.getElementById('delete-item-name');
+  if (type === 'venta') {
+    const v = ventasItems.find(v => v.id === id);
+    nameEl.textContent = v ? `"${v.producto}"` : 'esta venta';
+  } else {
+    const item = inventarioItems.find(i => i.id === id);
+    nameEl.textContent = item ? `"${item.nombre}"` : 'este artículo';
+  }
   modalDelete.classList.remove('hidden');
 }
 
@@ -914,8 +930,10 @@ async function handleDelete() {
   btn.textContent  = 'Eliminando…';
 
   try {
-    await deleteDoc(doc(db, 'inventario', pendingDeleteId));
-    showToast('Artículo eliminado del inventario', 'success');
+    const coleccion = pendingDeleteType === 'venta' ? 'ventas' : 'inventario';
+    const msg       = pendingDeleteType === 'venta' ? 'Venta eliminada' : 'Artículo eliminado del inventario';
+    await deleteDoc(doc(db, coleccion, pendingDeleteId));
+    showToast(msg, 'success');
     closeDeleteModal();
   } catch (err) {
     console.error('[firestore] Error al eliminar:', err.code);
@@ -968,6 +986,209 @@ function exportCSV() {
 
   showToast(`${inventarioItems.length} artículos exportados a CSV`, 'success');
 }
+
+// ── Ventas: Firestore subscription ───────────────────────────────────────────
+
+function subscribeVentas() {
+  const q = query(
+    collection(db, 'ventas'),
+    where('uid', '==', currentUser.uid),
+  );
+  unsubscribeVentas = onSnapshot(q, (snap) => {
+    ventasItems = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha)); // más reciente primero
+    updateVentasUI();
+  }, (err) => {
+    console.error('[firestore ventas]', err.code);
+    showToast('Error al cargar ventas. Verifica tu conexión.', 'error');
+  });
+}
+
+function updateVentasUI() {
+  renderVentasKPIs();
+  renderVentasTable();
+}
+
+// ── Ventas: KPIs ──────────────────────────────────────────────────────────────
+
+function renderVentasKPIs() {
+  const ahora  = new Date();
+  const mesAct = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
+
+  const delMes = ventasItems.filter(v => v.fecha && v.fecha.startsWith(mesAct));
+  const totalIngresos = delMes.reduce((s, v) => s + v.cantidad * v.precioUnitario, 0);
+  const count         = delMes.length;
+  const promedio      = count > 0 ? totalIngresos / count : 0;
+
+  const fmt = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  document.getElementById('vkpi-ingresos').textContent     = count === 0 ? '—' : fmt(totalIngresos);
+  document.getElementById('vkpi-ingresos-sub').textContent = count === 0
+    ? 'Sin ventas este mes'
+    : `${count} venta${count > 1 ? 's' : ''} registrada${count > 1 ? 's' : ''}`;
+
+  document.getElementById('vkpi-count').textContent     = count === 0 ? '—' : count;
+  document.getElementById('vkpi-count-sub').textContent = ventasItems.length === 0
+    ? 'Sin ventas registradas'
+    : `${ventasItems.length} venta${ventasItems.length > 1 ? 's' : ''} en total`;
+
+  document.getElementById('vkpi-avg').textContent     = count === 0 ? '—' : fmt(promedio);
+  document.getElementById('vkpi-avg-sub').textContent = count === 0 ? 'Sin ventas este mes' : 'por venta este mes';
+}
+
+// ── Ventas: Tabla ─────────────────────────────────────────────────────────────
+
+function renderVentasTable() {
+  const tbody  = document.getElementById('ventas-tabla-body');
+  const emptyEl = document.getElementById('ventas-empty');
+  if (!tbody) return;
+
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+  if (ventasItems.length === 0) {
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  const fmt = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  ventasItems.forEach(v => {
+    const total = v.cantidad * v.precioUnitario;
+    const tr    = document.createElement('tr');
+    tr.className = 'border-t border-gray-700/40 hover:bg-gray-700/20 transition-colors';
+
+    const tdFecha = document.createElement('td');
+    tdFecha.className = 'px-4 py-3 text-gray-300 text-sm whitespace-nowrap';
+    // Mostrar fecha en formato local sin desfase de zona horaria
+    const [y, m, d] = (v.fecha || '').split('-');
+    tdFecha.textContent = v.fecha ? `${d}/${m}/${y}` : '—';
+
+    const tdProducto = document.createElement('td');
+    tdProducto.className = 'px-4 py-3 text-gray-100 text-sm font-medium max-w-[180px] truncate';
+    tdProducto.textContent = v.producto;
+    if (v.notas) tdProducto.title = v.notas;
+
+    const tdCliente = document.createElement('td');
+    tdCliente.className = 'px-4 py-3 text-gray-400 text-sm';
+    tdCliente.textContent = v.cliente || '—';
+
+    const tdCant = document.createElement('td');
+    tdCant.className = 'px-4 py-3 text-gray-300 text-sm text-right';
+    tdCant.textContent = v.cantidad;
+
+    const tdPrecio = document.createElement('td');
+    tdPrecio.className = 'px-4 py-3 text-gray-300 text-sm text-right font-mono';
+    tdPrecio.textContent = fmt(v.precioUnitario);
+
+    const tdTotal = document.createElement('td');
+    tdTotal.className = 'px-4 py-3 text-emerald-400 text-sm text-right font-mono font-semibold';
+    tdTotal.textContent = fmt(total);
+
+    const tdAcciones = document.createElement('td');
+    tdAcciones.className = 'px-4 py-3';
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'flex items-center justify-end gap-1';
+
+    const btnEdit = document.createElement('button');
+    btnEdit.className = 'p-1.5 text-gray-500 hover:text-indigo-400 transition-colors cursor-pointer rounded';
+    btnEdit.title = 'Editar';
+    btnEdit.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+    </svg>`;
+    btnEdit.addEventListener('click', () => openVentaModal(v));
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'p-1.5 text-gray-500 hover:text-red-400 transition-colors cursor-pointer rounded';
+    btnDel.title = 'Eliminar';
+    btnDel.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+    </svg>`;
+    btnDel.addEventListener('click', () => openDeleteModal(v.id, 'venta'));
+
+    btnGroup.append(btnEdit, btnDel);
+    tdAcciones.appendChild(btnGroup);
+
+    tr.append(tdFecha, tdProducto, tdCliente, tdCant, tdPrecio, tdTotal, tdAcciones);
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Ventas: Modal crear / editar ──────────────────────────────────────────────
+
+const modalVenta = document.getElementById('modal-venta');
+
+function openVentaModal(venta = null) {
+  editingVentaId = venta ? venta.id : null;
+  document.getElementById('modal-venta-title').textContent = venta ? 'Editar Venta' : 'Nueva Venta';
+  document.getElementById('btn-submit-venta').textContent  = venta ? 'Guardar Cambios' : 'Guardar Venta';
+
+  // Fecha por defecto: hoy en formato YYYY-MM-DD
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('venta-fecha').value    = venta ? venta.fecha            : hoy;
+  document.getElementById('venta-producto').value = venta ? venta.producto         : '';
+  document.getElementById('venta-cliente').value  = venta ? (venta.cliente || '')  : '';
+  document.getElementById('venta-cantidad').value = venta ? venta.cantidad         : '';
+  document.getElementById('venta-precio').value   = venta ? venta.precioUnitario   : '';
+  document.getElementById('venta-notas').value    = venta ? (venta.notas || '')    : '';
+
+  modalVenta.classList.remove('hidden');
+  document.getElementById('venta-producto').focus();
+}
+
+function closeVentaModal() {
+  modalVenta.classList.add('hidden');
+  editingVentaId = null;
+}
+
+async function guardarVenta() {
+  const fecha   = document.getElementById('venta-fecha').value;
+  const producto = String(document.getElementById('venta-producto').value).trim().slice(0, 100);
+  const cliente  = String(document.getElementById('venta-cliente').value).trim().slice(0, 100);
+  const cantidad = Math.floor(Number(document.getElementById('venta-cantidad').value));
+  const precioUnitario = parseFloat(Number(document.getElementById('venta-precio').value).toFixed(2));
+  const notas   = String(document.getElementById('venta-notas').value).trim().slice(0, 200);
+
+  if (!fecha || !producto || !Number.isFinite(cantidad) || cantidad < 1
+      || !Number.isFinite(precioUnitario) || precioUnitario < 0) {
+    showToast('Completa los campos obligatorios.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-venta');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  const data = {
+    uid: currentUser.uid, fecha, producto, cliente, cantidad,
+    precioUnitario, notas, updatedAt: serverTimestamp(),
+  };
+
+  try {
+    if (editingVentaId) {
+      await updateDoc(doc(db, 'ventas', editingVentaId), data);
+      showToast('Venta actualizada', 'success');
+    } else {
+      await addDoc(collection(db, 'ventas'), { ...data, createdAt: serverTimestamp() });
+      showToast('Venta registrada', 'success');
+    }
+    closeVentaModal();
+  } catch (err) {
+    console.error('[firestore ventas] Error al guardar:', err.code);
+    showToast('Error al guardar. Intenta de nuevo.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingVentaId ? 'Guardar Cambios' : 'Guardar Venta';
+  }
+}
+
+document.getElementById('btn-nueva-venta').addEventListener('click',       () => openVentaModal());
+document.getElementById('btn-close-modal-venta').addEventListener('click', closeVentaModal);
+document.getElementById('btn-submit-venta').addEventListener('click',      guardarVenta);
+modalVenta.addEventListener('click', e => { if (e.target === modalVenta) closeVentaModal(); });
 
 // ── Notificaciones Toast ──────────────────────────────────────────────────────
 function showToast(message, type = 'success') {

@@ -162,7 +162,15 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
           </svg>
-          Comparar Proveedores
+          Comparar
+        </button>
+        <button id="tab-btn-ventas"
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+          </svg>
+          Ventas
         </button>
       </div>
 
@@ -385,7 +393,159 @@
 
       </div><!-- /tab-comparacion -->
 
+      <!-- ── Tab: Ventas ────────────────────────────────────── -->
+      <div id="tab-ventas" class="hidden space-y-6">
+
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white">Ventas</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Registro de ventas realizadas</p>
+          </div>
+          <button id="btn-nueva-venta"
+            class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nueva Venta
+          </button>
+        </div>
+
+        <!-- KPIs de ventas -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Ingresos del Mes</p>
+            <p id="vkpi-ingresos" class="text-3xl font-bold text-white mt-2">—</p>
+            <p id="vkpi-ingresos-sub" class="text-xs text-gray-500 mt-1"></p>
+          </div>
+          <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Ventas del Mes</p>
+            <p id="vkpi-count" class="text-3xl font-bold text-white mt-2">—</p>
+            <p id="vkpi-count-sub" class="text-xs text-gray-500 mt-1"></p>
+          </div>
+          <div class="bg-gray-800 rounded-xl border border-gray-700/50 p-5">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Promedio por Venta</p>
+            <p id="vkpi-avg" class="text-3xl font-bold text-white mt-2">—</p>
+            <p id="vkpi-avg-sub" class="text-xs text-gray-500 mt-1"></p>
+          </div>
+        </div>
+
+        <!-- Tabla de ventas -->
+        <div class="bg-gray-800 rounded-xl border border-gray-700/50 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-700/60">
+                  <th class="text-left text-xs font-medium text-gray-500 px-4 py-3">Fecha</th>
+                  <th class="text-left text-xs font-medium text-gray-500 px-4 py-3">Producto</th>
+                  <th class="text-left text-xs font-medium text-gray-500 px-4 py-3">Cliente</th>
+                  <th class="text-right text-xs font-medium text-gray-500 px-4 py-3">Cant.</th>
+                  <th class="text-right text-xs font-medium text-gray-500 px-4 py-3">Precio Unit.</th>
+                  <th class="text-right text-xs font-medium text-gray-500 px-4 py-3">Total</th>
+                  <th class="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody id="ventas-tabla-body"></tbody>
+            </table>
+          </div>
+          <div id="ventas-empty" class="hidden p-12 text-center">
+            <div class="w-12 h-12 bg-gray-700/60 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+              </svg>
+            </div>
+            <p class="text-gray-300 font-medium">Sin ventas registradas</p>
+            <p class="text-gray-500 text-sm mt-1 max-w-xs mx-auto">Registra tu primera venta con el botón "Nueva Venta"</p>
+          </div>
+        </div>
+
+      </div><!-- /tab-ventas -->
+
     </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODAL: AGREGAR / EDITAR VENTA
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="modal-venta"
+    class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl shadow-2xl w-full max-w-md">
+
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/60">
+        <h3 id="modal-venta-title" class="font-semibold text-gray-100 text-base">Nueva Venta</h3>
+        <button id="btn-close-modal-venta"
+          class="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="form-venta" class="px-6 py-5 space-y-4" novalidate>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2 sm:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="venta-fecha">
+              Fecha <span class="text-red-500">*</span>
+            </label>
+            <input id="venta-fecha" type="date" required
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+          <div class="col-span-2 sm:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="venta-cliente">
+              Cliente
+            </label>
+            <input id="venta-cliente" type="text" maxlength="100" placeholder="ej. Juan Pérez"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5" for="venta-producto">
+            Producto <span class="text-red-500">*</span>
+          </label>
+          <input id="venta-producto" type="text" maxlength="100" required placeholder="ej. Figura dragón PLA 15cm"
+            class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="venta-cantidad">
+              Cantidad <span class="text-red-500">*</span>
+            </label>
+            <input id="venta-cantidad" type="number" min="1" max="999999" required placeholder="1"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5" for="venta-precio">
+              Precio Unit. (USD) <span class="text-red-500">*</span>
+            </label>
+            <input id="venta-precio" type="number" min="0" max="999999" step="0.01" required placeholder="0.00"
+              class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5" for="venta-notas">
+            Notas
+          </label>
+          <textarea id="venta-notas" maxlength="200" rows="2" placeholder="Notas opcionales…"
+            class="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"></textarea>
+        </div>
+
+        <button id="btn-submit-venta" type="button"
+          class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+          Guardar Venta
+        </button>
+
+      </form>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
