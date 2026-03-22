@@ -1575,11 +1575,11 @@ function renderProductosTable() {
     tdNombre.appendChild(nameSpan);
 
     const tdMaterial = document.createElement('td');
-    tdMaterial.className = 'px-4 py-3 text-gray-400 text-sm';
+    tdMaterial.className = 'hidden sm:table-cell px-4 py-3 text-gray-400 text-sm';
     tdMaterial.textContent = p.material || '—';
 
     const tdQty = document.createElement('td');
-    tdQty.className = 'px-4 py-3 text-gray-300 text-sm text-right';
+    tdQty.className = 'hidden sm:table-cell px-4 py-3 text-gray-300 text-sm text-right';
     tdQty.textContent = p.qty;
 
     const tdCosto = document.createElement('td');
