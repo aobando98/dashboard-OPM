@@ -26,7 +26,7 @@ dashboard-OPM/
     ├── firebase-config.js      # Local credentials (gitignored — never committed)
     ├── firebase-config.example.js  # Public template for firebase-config.js
     ├── auth.js                 # signInWithGoogle(), logOut()
-    └── app.js                  # All app logic: auth listener, CRUD, KPIs, charts, CSV
+    └── app.js                  # All app logic: auth listener, CRUD, KPIs, charts, CSV, cotizador
 ```
 
 ## Firebase Initialization — firebase-init.js
@@ -83,7 +83,11 @@ App is available at `https://creaticaopm.web.app`.
 
 **Tab navigation**: Two tabs in the dashboard — "Dashboard" (KPIs + charts + table) and "Comparar Proveedores". `switchTab(name)` in `app.js` toggles visibility and styles. Active tab state stored in `activeTab` variable.
 
-**Supplier comparison** (`renderComparacion()`): Groups `inventarioItems` by `nombre.toLowerCase()`. Shows comparison cards only for groups with 2+ distinct suppliers, ranked by `costoUnitario` ascending. Cheapest supplier highlighted green; savings potential shown in card header. BADGE map is module-level (shared by `renderTable` and `renderComparacion`).
+**Comparar Proveedores tab** has two independent sections:
+
+1. **Cotizador rápido** — in-memory scratch pad, no Firestore. State: `cotizacionItems` array + `cotizacionNextId` counter (both module-level). `renderCotizacion()` renders the entries table and comparison cards. Called only on user interaction (add/remove entry) — never from `updateUI()`. Data clears on page close. Comparison cards appear only when the same article name has 2+ distinct suppliers.
+
+2. **Desde el inventario** (`renderComparacion()`): Groups `inventarioItems` by `nombre.toLowerCase()`. Shows comparison cards only for groups with 2+ distinct suppliers, ranked by `costoUnitario` ascending. Cheapest supplier highlighted green; savings potential shown in card header. Called from `updateUI()` on every Firestore update. BADGE map is module-level (shared by `renderTable` and `renderComparacion`).
 
 **CSV export**: Includes UTF-8 BOM (`\uFEFF`) so Excel opens the file with correct encoding. All cell values are double-quote escaped.
 
