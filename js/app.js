@@ -17,6 +17,7 @@ let currentUser         = null;
 let inventarioItems     = [];
 let chartGasto          = null;
 let chartInventario     = null;
+let chartVentasMes      = null;
 let editingItemId       = null;
 let pendingDeleteId     = null;
 let unsubscribeSnapshot = null;
@@ -1026,6 +1027,137 @@ function subscribeVentas() {
 function updateVentasUI() {
   renderVentasKPIs();
   renderVentasTable();
+  renderDashboardVentas();
+}
+
+// ── Dashboard: sección de ventas ─────────────────────────────────────────────
+
+function renderDashboardVentas() {
+  const fmt = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // ── KPIs del mes actual ──
+  const ahora  = new Date();
+  const mesAct = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
+  const delMes = ventasItems.filter(v => v.fecha?.startsWith(mesAct));
+  const ingresosMes = delMes.reduce((s, v) => s + v.cantidad * v.precioUnitario, 0);
+  const countMes    = delMes.length;
+  const avgMes      = countMes > 0 ? ingresosMes / countMes : 0;
+
+  const ingresosEl = document.getElementById('dash-v-ingresos');
+  if (ingresosEl) {
+    ingresosEl.textContent = countMes === 0 ? '—' : fmt(ingresosMes);
+    ingresosEl.className = `text-4xl font-bold ${countMes > 0 ? 'text-emerald-400' : 'text-gray-600'}`;
+  }
+  set('dash-v-ingresos-sub', countMes === 0
+    ? 'Sin ventas este mes'
+    : `${countMes} venta${countMes > 1 ? 's' : ''} registrada${countMes > 1 ? 's' : ''}`);
+  set('dash-v-count', countMes === 0 ? '—' : countMes);
+  set('dash-v-count-sub', ventasItems.length === 0
+    ? 'Sin ventas registradas'
+    : `${ventasItems.length} en total`);
+  set('dash-v-avg', countMes === 0 ? '—' : fmt(avgMes));
+
+  // ── Gráfico de ingresos mensuales (últimos 6 meses) ──
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+    meses.push({
+      key:   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      label: d.toLocaleString('es', { month: 'short' }),
+    });
+  }
+
+  const ingresosPorMes = meses.map(m =>
+    ventasItems
+      .filter(v => v.fecha?.startsWith(m.key))
+      .reduce((s, v) => s + v.cantidad * v.precioUnitario, 0),
+  );
+  const hayDatos = ingresosPorMes.some(v => v > 0);
+
+  const chartCanvas = document.getElementById('chart-ventas-mes');
+  const chartEmpty  = document.getElementById('chart-ventas-empty');
+  if (chartCanvas && chartEmpty) {
+    chartEmpty.classList.toggle('hidden', hayDatos);
+    chartCanvas.style.display = hayDatos ? '' : 'none';
+  }
+
+  if (chartVentasMes) { chartVentasMes.destroy(); chartVentasMes = null; }
+
+  if (chartCanvas && hayDatos) {
+    chartVentasMes = new Chart(chartCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: meses.map(m => m.label),
+        datasets: [{
+          label: 'Ingresos (USD)',
+          data:  ingresosPorMes,
+          backgroundColor: meses.map((m, i) =>
+            m.key === mesAct ? 'rgba(52,211,153,0.85)' : 'rgba(99,102,241,0.55)',
+          ),
+          borderColor: meses.map((m, i) =>
+            m.key === mesAct ? 'rgba(52,211,153,1)' : 'rgba(99,102,241,0.9)',
+          ),
+          borderWidth: 1,
+          borderRadius: 5,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#9ca3af', font: { size: 11 } } },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: {
+              color: '#9ca3af', font: { size: 10 },
+              callback: v => `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+            },
+            beginAtZero: true,
+          },
+        },
+      },
+    });
+  }
+
+  // ── Últimas 5 ventas ──
+  const container = document.getElementById('dash-ventas-recientes');
+  if (!container) return;
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  const recientes = ventasItems.slice(0, 5);
+  if (recientes.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'text-xs text-gray-600 text-center py-4';
+    p.textContent = 'Sin ventas registradas';
+    container.appendChild(p);
+    return;
+  }
+
+  recientes.forEach(v => {
+    const total = v.cantidad * v.precioUnitario;
+    const [y, m, d] = (v.fecha || '').split('-');
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2 py-2 border-b border-gray-700/40 last:border-0';
+
+    const left = document.createElement('div');
+    left.className = 'min-w-0';
+    const nameEl = document.createElement('p');
+    nameEl.className = 'text-sm text-gray-200 truncate font-medium';
+    nameEl.textContent = v.producto;
+    const dateEl = document.createElement('p');
+    dateEl.className = 'text-xs text-gray-500';
+    dateEl.textContent = v.fecha ? `${d}/${m}/${y}` : '—';
+    left.append(nameEl, dateEl);
+
+    const right = document.createElement('p');
+    right.className = 'text-sm font-mono font-semibold text-emerald-400 whitespace-nowrap';
+    right.textContent = fmt(total);
+
+    row.append(left, right);
+    container.appendChild(row);
+  });
 }
 
 // ── Ventas: KPIs ──────────────────────────────────────────────────────────────
