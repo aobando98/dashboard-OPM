@@ -75,11 +75,15 @@ App is available at `https://creaticaopm.web.app`.
 
 **Real-time sync**: `onSnapshot` subscription updates state array `inventarioItems` and re-renders the entire UI on every Firestore change. No manual refresh needed.
 
-**Reactive render pipeline**: every Firestore update calls `updateUI()` → `renderKPIs()` + `renderChartGasto()` + `renderChartInventario()` + `renderTable()`.
+**Reactive render pipeline**: every Firestore update calls `updateUI()` → `renderKPIs()` + `renderChartGasto()` + `renderChartInventario()` + `renderTable()` + `renderComparacion()`.
 
 **Charts**: Chart.js instances are stored in `chartGasto` and `chartInventario`. Both are destroyed and recreated on each data update to avoid stale data. Chart.js is loaded as a CDN global — import is NOT needed.
 
 **Table rendering**: Built entirely with DOM API (`createElement`, `textContent`) — no `innerHTML` with user data to prevent XSS. Event delegation on `<tbody>` handles edit/delete button clicks via `data-action` and `data-id` attributes.
+
+**Tab navigation**: Two tabs in the dashboard — "Dashboard" (KPIs + charts + table) and "Comparar Proveedores". `switchTab(name)` in `app.js` toggles visibility and styles. Active tab state stored in `activeTab` variable.
+
+**Supplier comparison** (`renderComparacion()`): Groups `inventarioItems` by `nombre.toLowerCase()`. Shows comparison cards only for groups with 2+ distinct suppliers, ranked by `costoUnitario` ascending. Cheapest supplier highlighted green; savings potential shown in card header. BADGE map is module-level (shared by `renderTable` and `renderComparacion`).
 
 **CSV export**: Includes UTF-8 BOM (`\uFEFF`) so Excel opens the file with correct encoding. All cell values are double-quote escaped.
 
@@ -136,7 +140,7 @@ Collection: `inventario`
 | `nombre` | string | Item name, max 100 chars |
 | `categoria` | string | Must be one of 5 valid values (whitelist enforced in JS + Firestore rules) |
 | `cantidad` | number | Current stock, 0–999999 |
-| `costoUnitario` | number | Unit cost in MXN, 0–999999 |
+| `costoUnitario` | number | Unit cost in USD, 0–999999 |
 | `proveedor` | string | Supplier name, max 100 chars |
 | `nivelMinimo` | number | Alert threshold, 0–999999 |
 | `createdAt` | timestamp | Set on create via `serverTimestamp()` |
@@ -155,7 +159,7 @@ cp js/firebase-config.example.js js/firebase-config.js
 
 ## Key Constants to Customize
 
-- `PRESUPUESTO` in `app.js` — monthly budget reference for the KPI card (default: `50_000` MXN)
+- `PRESUPUESTO` in `app.js` — monthly budget reference for the KPI card (default: `50_000` USD)
 - `PALETA` in `app.js` — doughnut chart color array
 - Categories — `<option>` tags in `index.html` (modal + filter select), `BADGE` map in `app.js`, `CATEGORIAS_VALIDAS` Set in `app.js`, and `camposValidos()` list in `firestore.rules` — must be updated in all four places
 
