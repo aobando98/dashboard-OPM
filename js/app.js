@@ -70,13 +70,13 @@ function sanitizeStr(val) {
 }
 
 function sanitizeInt(val) {
-  const n = Math.floor(Number(val));
-  return Number.isFinite(n) ? Math.max(0, Math.min(n, MAX_NUM)) : -1; // -1 = inválido
+  const numero = Math.floor(Number(val));
+  return Number.isFinite(numero) ? Math.max(0, Math.min(numero, MAX_NUM)) : -1; // -1 = inválido
 }
 
 function sanitizeFloat(val) {
-  const n = parseFloat(Number(val).toFixed(2));
-  return Number.isFinite(n) ? Math.max(0, Math.min(n, MAX_NUM)) : -1; // -1 = inválido
+  const numero = parseFloat(Number(val).toFixed(2));
+  return Number.isFinite(numero) ? Math.max(0, Math.min(numero, MAX_NUM)) : -1; // -1 = inválido
 }
 
 function readForm() {
@@ -198,13 +198,13 @@ function subscribeInventario() {
     where('uid', '==', currentUser.uid),
   );
 
-  unsubscribeSnapshot = onSnapshot(q, (snap) => {
-    inventarioItems = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
+  unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+    inventarioItems = snapshot.docs
+      .map(documento => ({ id: documento.id, ...documento.data() }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     updateUI();
-  }, (err) => {
-    console.error('[firestore]', err.code);
+  }, (error) => {
+    console.error('[firestore]', error.code);
     showToast('Error al cargar datos. Verifica tu conexión.', 'error');
   });
 }
@@ -226,10 +226,10 @@ function switchTab(tab) {
   const tabs    = ['dashboard', 'comparacion', 'ventas', 'cotizaciones', 'productos'];
   const btnBase = 'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer';
 
-  tabs.forEach(t => {
-    document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
-    const btn = document.getElementById(`tab-btn-${t}`);
-    if (t === tab) {
+  tabs.forEach(nombreTab => {
+    document.getElementById(`tab-${nombreTab}`).classList.toggle('hidden', nombreTab !== tab);
+    const btn = document.getElementById(`tab-btn-${nombreTab}`);
+    if (nombreTab === tab) {
       btn.className = `${btnBase} bg-indigo-600 text-white`;
     } else {
       btn.className = `${btnBase} text-gray-400 hover:text-gray-200 hover:bg-gray-700/50`;
@@ -316,7 +316,7 @@ function renderCotizacion() {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
     </svg>`;
     btnDel.addEventListener('click', () => {
-      cotizacionItems = cotizacionItems.filter(i => i.id !== item.id);
+      cotizacionItems = cotizacionItems.filter(entrada => entrada.id !== item.id);
       renderCotizacion();
     });
     tdDel.appendChild(btnDel);
@@ -345,9 +345,9 @@ function renderCotizacion() {
     grupos[key].items.push(item);
   });
 
-  const comparables = Object.values(grupos).filter(g => {
-    const provs = new Set(g.items.map(i => i.proveedor.trim().toLowerCase()));
-    return provs.size > 1;
+  const comparables = Object.values(grupos).filter(grupo => {
+    const proveedores = new Set(grupo.items.map(item => item.proveedor.trim().toLowerCase()));
+    return proveedores.size > 1;
   });
 
   if (comparables.length === 0) return;
@@ -357,14 +357,14 @@ function renderCotizacion() {
   secLabel.textContent = 'Resultado';
   resultsEl.appendChild(secLabel);
 
-  const fmt = v => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = valor => `$${valor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   comparables.forEach(grupo => {
-    const sorted   = [...grupo.items].sort((a, b) => a.precio - b.precio);
-    const minPrecio = sorted[0].precio;
-    const maxPrecio = sorted[sorted.length - 1].precio;
-    const ahorro   = maxPrecio - minPrecio;
-    const pct      = maxPrecio > 0 ? Math.round((ahorro / maxPrecio) * 100) : 0;
+    const sorted          = [...grupo.items].sort((a, b) => a.precio - b.precio);
+    const minPrecio       = sorted[0].precio;
+    const maxPrecio       = sorted[sorted.length - 1].precio;
+    const ahorro          = maxPrecio - minPrecio;
+    const porcentajeAhorro = maxPrecio > 0 ? Math.round((ahorro / maxPrecio) * 100) : 0;
 
     const card = document.createElement('div');
     card.className = 'bg-gray-700/40 border border-gray-600/50 rounded-xl overflow-hidden mt-3';
@@ -376,7 +376,7 @@ function renderCotizacion() {
     cardTitle.textContent = grupo.nombre;
     const savBadge = document.createElement('span');
     savBadge.className = 'text-xs text-emerald-400 font-medium';
-    savBadge.textContent = `Ahorro potencial: ${fmt(ahorro)} (${pct}%)`;
+    savBadge.textContent = `Ahorro potencial: ${fmt(ahorro)} (${porcentajeAhorro}%)`;
     cardHead.append(cardTitle, savBadge);
     card.appendChild(cardHead);
 
@@ -427,9 +427,9 @@ function renderComparacion() {
   });
 
   // Solo grupos con 2+ proveedores distintos
-  const comparables = Object.values(grupos).filter(g => {
-    const provs = new Set(g.items.map(i => (i.proveedor || '').trim().toLowerCase()));
-    return provs.size > 1;
+  const comparables = Object.values(grupos).filter(grupo => {
+    const proveedores = new Set(grupo.items.map(articulo => (articulo.proveedor || '').trim().toLowerCase()));
+    return proveedores.size > 1;
   });
 
   if (comparables.length === 0) {
@@ -459,8 +459,8 @@ function renderComparacion() {
     const sorted    = [...grupo.items].sort((a, b) => a.costoUnitario - b.costoUnitario);
     const minCosto  = sorted[0].costoUnitario;
     const maxCosto  = sorted[sorted.length - 1].costoUnitario;
-    const ahorro    = maxCosto - minCosto;
-    const pctAhorro = maxCosto > 0 ? Math.round((ahorro / maxCosto) * 100) : 0;
+    const ahorro           = maxCosto - minCosto;
+    const porcentajeAhorro = maxCosto > 0 ? Math.round((ahorro / maxCosto) * 100) : 0;
 
     const fmt = v => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -488,7 +488,7 @@ function renderComparacion() {
     savingsLabel.textContent = 'Ahorro potencial';
     const savingsVal = document.createElement('p');
     savingsVal.className = 'text-sm font-bold text-green-400';
-    savingsVal.textContent = `${fmt(ahorro)} (${pctAhorro}%)`;
+    savingsVal.textContent = `${fmt(ahorro)} (${porcentajeAhorro}%)`;
     savingsWrap.append(savingsLabel, savingsVal);
 
     header.append(titleWrap, savingsWrap);
@@ -549,17 +549,17 @@ function renderComparacion() {
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 function renderKPIs() {
-  const total      = inventarioItems.length;
-  const valorTotal = inventarioItems.reduce((s, i) => s + i.cantidad * i.costoUnitario, 0);
-  const itemsOK    = inventarioItems.filter(i => i.cantidad >= i.nivelMinimo).length;
-  const itemsAlert = total - itemsOK;
-  const pctOK      = total > 0 ? Math.round((itemsOK / total) * 100) : 0;
-  const pctPres    = Math.min(Math.round((valorTotal / PRESUPUESTO) * 100), 999);
+  const total                = inventarioItems.length;
+  const valorTotal           = inventarioItems.reduce((suma, articulo) => suma + articulo.cantidad * articulo.costoUnitario, 0);
+  const itemsOK              = inventarioItems.filter(articulo => articulo.cantidad >= articulo.nivelMinimo).length;
+  const itemsAlert           = total - itemsOK;
+  const porcentajeOptimo     = total > 0 ? Math.round((itemsOK / total) * 100) : 0;
+  const porcentajePresupuesto = Math.min(Math.round((valorTotal / PRESUPUESTO) * 100), 999);
 
   const margenEl = document.getElementById('kpi-margen-valor');
-  margenEl.textContent = total === 0 ? '—' : `${pctOK}%`;
+  margenEl.textContent = total === 0 ? '—' : `${porcentajeOptimo}%`;
   margenEl.className   = `text-4xl font-bold ${
-    pctOK >= 80 ? 'text-green-400' : pctOK >= 50 ? 'text-yellow-400' : 'text-red-400'
+    porcentajeOptimo >= 80 ? 'text-green-400' : porcentajeOptimo >= 50 ? 'text-yellow-400' : 'text-red-400'
   }`;
   document.getElementById('kpi-margen-sub').textContent =
     total === 0 ? 'Sin artículos registrados'
@@ -568,16 +568,16 @@ function renderKPIs() {
   document.getElementById('kpi-gasto-valor').textContent =
     `$${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   document.getElementById('kpi-gasto-sub').textContent =
-    `${pctPres}% del presupuesto mensual`;
+    `${porcentajePresupuesto}% del presupuesto mensual`;
 
   const bar = document.getElementById('kpi-gasto-bar');
-  bar.style.width = `${Math.min(pctPres, 100)}%`;
+  bar.style.width = `${Math.min(porcentajePresupuesto, 100)}%`;
   bar.className   = `h-2 rounded-full transition-all duration-700 ${
-    pctPres >= 100 ? 'bg-red-500' : pctPres >= 80 ? 'bg-yellow-500' : 'bg-indigo-500'
+    porcentajePresupuesto >= 100 ? 'bg-red-500' : porcentajePresupuesto >= 80 ? 'bg-yellow-500' : 'bg-indigo-500'
   }`;
 
   const otifEl = document.getElementById('kpi-otif-valor');
-  otifEl.textContent = total === 0 ? '—' : `${pctOK}%`;
+  otifEl.textContent = total === 0 ? '—' : `${porcentajeOptimo}%`;
   otifEl.className   = `text-4xl font-bold ${
     itemsAlert === 0 ? 'text-green-400' : itemsAlert <= 2 ? 'text-yellow-400' : 'text-red-400'
   }`;
@@ -595,8 +595,8 @@ function renderChartGasto() {
   const emptyEl = document.getElementById('chart-gasto-empty');
 
   const gastos = {};
-  inventarioItems.forEach(i => {
-    gastos[i.categoria] = (gastos[i.categoria] || 0) + i.cantidad * i.costoUnitario;
+  inventarioItems.forEach(articulo => {
+    gastos[articulo.categoria] = (gastos[articulo.categoria] || 0) + articulo.cantidad * articulo.costoUnitario;
   });
   const labels = Object.keys(gastos);
   const data   = Object.values(gastos);
@@ -629,9 +629,9 @@ function renderChartGasto() {
         tooltip: {
           callbacks: {
             label: ctx => {
-              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-              const pct   = Math.round((ctx.raw / total) * 100);
-              return ` $${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${pct}%)`;
+              const total      = ctx.dataset.data.reduce((suma, val) => suma + val, 0);
+              const porcentaje = Math.round((ctx.raw / total) * 100);
+              return ` $${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${porcentaje}%)`;
             },
           },
         },
@@ -646,9 +646,9 @@ function renderChartInventario() {
   const emptyEl = document.getElementById('chart-inv-empty');
 
   const items      = inventarioItems.slice(0, 12);
-  const labels     = items.map(i => i.nombre.length > 14 ? i.nombre.slice(0, 13) + '…' : i.nombre);
-  const cantidades = items.map(i => i.cantidad);
-  const minimos    = items.map(i => i.nivelMinimo);
+  const labels     = items.map(articulo => articulo.nombre.length > 14 ? articulo.nombre.slice(0, 13) + '…' : articulo.nombre);
+  const cantidades = items.map(articulo => articulo.cantidad);
+  const minimos    = items.map(articulo => articulo.nivelMinimo);
 
   if (chartInventario) { chartInventario.destroy(); chartInventario = null; }
 
@@ -663,11 +663,11 @@ function renderChartInventario() {
           type: 'bar',
           label: 'Stock Actual',
           data: cantidades,
-          backgroundColor: cantidades.map((q, i) =>
-            q < minimos[i] ? 'rgba(248,113,113,0.75)' : 'rgba(129,140,248,0.75)',
+          backgroundColor: cantidades.map((cantidad, indice) =>
+            cantidad < minimos[indice] ? 'rgba(248,113,113,0.75)' : 'rgba(129,140,248,0.75)',
           ),
-          borderColor: cantidades.map((q, i) =>
-            q < minimos[i] ? '#f87171' : '#818cf8',
+          borderColor: cantidades.map((cantidad, indice) =>
+            cantidad < minimos[indice] ? '#f87171' : '#818cf8',
           ),
           borderWidth: 2,
           borderRadius: 5,
@@ -711,14 +711,14 @@ function renderChartInventario() {
 
 // ── Tabla de inventario ───────────────────────────────────────────────────────
 function renderTable() {
-  const search  = document.getElementById('input-buscar').value.toLowerCase();
-  const catFilt = document.getElementById('select-categoria').value;
+  const busqueda        = document.getElementById('input-buscar').value.toLowerCase();
+  const filtroCategoria = document.getElementById('select-categoria').value;
 
   let items = inventarioItems;
-  if (search)  items = items.filter(i =>
-    i.nombre.toLowerCase().includes(search) || (i.proveedor || '').toLowerCase().includes(search),
+  if (busqueda)        items = items.filter(articulo =>
+    articulo.nombre.toLowerCase().includes(busqueda) || (articulo.proveedor || '').toLowerCase().includes(busqueda),
   );
-  if (catFilt) items = items.filter(i => i.categoria === catFilt);
+  if (filtroCategoria) items = items.filter(articulo => articulo.categoria === filtroCategoria);
 
   tablaBody.replaceChildren();
 
@@ -840,7 +840,7 @@ function openModal(id = null) {
   clearFieldErrors();
 
   if (id) {
-    const item = inventarioItems.find(i => i.id === id);
+    const item = inventarioItems.find(articulo => articulo.id === id);
     if (!item) return;
     document.getElementById('modal-title').textContent   = 'Editar Artículo';
     document.getElementById('field-nombre').value        = item.nombre;
@@ -921,13 +921,13 @@ function openDeleteModal(id, type = 'inventario') {
   pendingDeleteType = type;
   const nameEl = document.getElementById('delete-item-name');
   if (type === 'venta') {
-    const v = ventasItems.find(v => v.id === id);
-    nameEl.textContent = v ? `"${v.producto}"` : 'esta venta';
+    const venta = ventasItems.find(venta => venta.id === id);
+    nameEl.textContent = venta ? `"${venta.producto}"` : 'esta venta';
   } else if (type === 'producto') {
-    const p = productosItems.find(p => p.id === id);
-    nameEl.textContent = p ? `"${p.nombre}"` : 'este producto';
+    const producto = productosItems.find(producto => producto.id === id);
+    nameEl.textContent = producto ? `"${producto.nombre}"` : 'este producto';
   } else {
-    const item = inventarioItems.find(i => i.id === id);
+    const item = inventarioItems.find(articulo => articulo.id === id);
     nameEl.textContent = item ? `"${item.nombre}"` : 'este artículo';
   }
   modalDelete.classList.remove('hidden');
@@ -978,18 +978,18 @@ function exportCSV() {
     'Proveedor', 'Nivel Mínimo',
   ];
 
-  const rows = inventarioItems.map(i => [
-    i.nombre,
-    i.categoria,
-    i.cantidad,
-    i.costoUnitario.toFixed(2),
-    (i.cantidad * i.costoUnitario).toFixed(2),
-    i.proveedor ?? '',
-    i.nivelMinimo,
+  const rows = inventarioItems.map(articulo => [
+    articulo.nombre,
+    articulo.categoria,
+    articulo.cantidad,
+    articulo.costoUnitario.toFixed(2),
+    (articulo.cantidad * articulo.costoUnitario).toFixed(2),
+    articulo.proveedor ?? '',
+    articulo.nivelMinimo,
   ]);
 
   const csv = [HEADERS, ...rows]
-    .map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
+    .map(fila => fila.map(celda => `"${String(celda).replace(/"/g, '""')}"`).join(','))
     .join('\n');
 
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1013,13 +1013,13 @@ function subscribeVentas() {
     collection(db, 'ventas'),
     where('uid', '==', currentUser.uid),
   );
-  unsubscribeVentas = onSnapshot(q, (snap) => {
-    ventasItems = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
+  unsubscribeVentas = onSnapshot(q, (snapshot) => {
+    ventasItems = snapshot.docs
+      .map(documento => ({ id: documento.id, ...documento.data() }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha)); // más reciente primero
     updateVentasUI();
-  }, (err) => {
-    console.error('[firestore ventas]', err.code);
+  }, (error) => {
+    console.error('[firestore ventas]', error.code);
     showToast('Error al cargar ventas. Verifica tu conexión.', 'error');
   });
 }
@@ -1039,10 +1039,10 @@ function renderDashboardVentas() {
   // ── KPIs del mes actual ──
   const ahora  = new Date();
   const mesAct = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
-  const delMes = ventasItems.filter(v => v.fecha?.startsWith(mesAct));
-  const ingresosMes = delMes.reduce((s, v) => s + v.cantidad * v.precioUnitario, 0);
-  const countMes    = delMes.length;
-  const avgMes      = countMes > 0 ? ingresosMes / countMes : 0;
+  const ventasDelMes = ventasItems.filter(venta => venta.fecha?.startsWith(mesAct));
+  const ingresosMes  = ventasDelMes.reduce((suma, venta) => suma + venta.cantidad * venta.precioUnitario, 0);
+  const countMes     = ventasDelMes.length;
+  const avgMes       = countMes > 0 ? ingresosMes / countMes : 0;
 
   const ingresosEl = document.getElementById('dash-v-ingresos');
   if (ingresosEl) {
@@ -1059,21 +1059,22 @@ function renderDashboardVentas() {
   set('dash-v-avg', countMes === 0 ? '—' : fmt(avgMes));
 
   // ── Gráfico de ingresos mensuales (últimos 6 meses) ──
+  // Construir lista de los últimos 6 meses (del más antiguo al más reciente)
   const meses = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+  for (let offset = 5; offset >= 0; offset--) {
+    const primero = new Date(ahora.getFullYear(), ahora.getMonth() - offset, 1);
     meses.push({
-      key:   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      label: d.toLocaleString('es', { month: 'short' }),
+      key:   `${primero.getFullYear()}-${String(primero.getMonth() + 1).padStart(2, '0')}`,
+      label: primero.toLocaleString('es', { month: 'short' }),
     });
   }
 
-  const ingresosPorMes = meses.map(m =>
+  const ingresosPorMes = meses.map(mes =>
     ventasItems
-      .filter(v => v.fecha?.startsWith(m.key))
-      .reduce((s, v) => s + v.cantidad * v.precioUnitario, 0),
+      .filter(venta => venta.fecha?.startsWith(mes.key))
+      .reduce((suma, venta) => suma + venta.cantidad * venta.precioUnitario, 0),
   );
-  const hayDatos = ingresosPorMes.some(v => v > 0);
+  const hayDatos = ingresosPorMes.some(ingresos => ingresos > 0);
 
   const chartCanvas = document.getElementById('chart-ventas-mes');
   const chartEmpty  = document.getElementById('chart-ventas-empty');
@@ -1088,15 +1089,15 @@ function renderDashboardVentas() {
     chartVentasMes = new Chart(chartCanvas.getContext('2d'), {
       type: 'bar',
       data: {
-        labels: meses.map(m => m.label),
+        labels: meses.map(mes => mes.label),
         datasets: [{
           label: 'Ingresos (USD)',
           data:  ingresosPorMes,
-          backgroundColor: meses.map((m, i) =>
-            m.key === mesAct ? 'rgba(52,211,153,0.85)' : 'rgba(99,102,241,0.55)',
+          backgroundColor: meses.map(mes =>
+            mes.key === mesAct ? 'rgba(52,211,153,0.85)' : 'rgba(99,102,241,0.55)',
           ),
-          borderColor: meses.map((m, i) =>
-            m.key === mesAct ? 'rgba(52,211,153,1)' : 'rgba(99,102,241,0.9)',
+          borderColor: meses.map(mes =>
+            mes.key === mesAct ? 'rgba(52,211,153,1)' : 'rgba(99,102,241,0.9)',
           ),
           borderWidth: 1,
           borderRadius: 5,
@@ -1135,9 +1136,9 @@ function renderDashboardVentas() {
     return;
   }
 
-  recientes.forEach(v => {
-    const total = v.cantidad * v.precioUnitario;
-    const [y, m, d] = (v.fecha || '').split('-');
+  recientes.forEach(venta => {
+    const total = venta.cantidad * venta.precioUnitario;
+    const [anio, mes, dia] = (venta.fecha || '').split('-');
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between gap-2 py-2 border-b border-gray-700/40 last:border-0';
 
@@ -1145,10 +1146,10 @@ function renderDashboardVentas() {
     left.className = 'min-w-0';
     const nameEl = document.createElement('p');
     nameEl.className = 'text-sm text-gray-200 truncate font-medium';
-    nameEl.textContent = v.producto;
+    nameEl.textContent = venta.producto;
     const dateEl = document.createElement('p');
     dateEl.className = 'text-xs text-gray-500';
-    dateEl.textContent = v.fecha ? `${d}/${m}/${y}` : '—';
+    dateEl.textContent = venta.fecha ? `${dia}/${mes}/${anio}` : '—';
     left.append(nameEl, dateEl);
 
     const right = document.createElement('p');
@@ -1166,8 +1167,8 @@ function renderVentasKPIs() {
   const ahora  = new Date();
   const mesAct = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
 
-  const delMes = ventasItems.filter(v => v.fecha && v.fecha.startsWith(mesAct));
-  const totalIngresos = delMes.reduce((s, v) => s + v.cantidad * v.precioUnitario, 0);
+  const delMes        = ventasItems.filter(venta => venta.fecha && venta.fecha.startsWith(mesAct));
+  const totalIngresos = delMes.reduce((suma, venta) => suma + venta.cantidad * venta.precioUnitario, 0);
   const count         = delMes.length;
   const promedio      = count > 0 ? totalIngresos / count : 0;
 
@@ -1204,33 +1205,33 @@ function renderVentasTable() {
 
   const fmt = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  ventasItems.forEach(v => {
-    const total = v.cantidad * v.precioUnitario;
+  ventasItems.forEach(venta => {
+    const total = venta.cantidad * venta.precioUnitario;
     const tr    = document.createElement('tr');
     tr.className = 'border-t border-gray-700/40 hover:bg-gray-700/20 transition-colors';
 
     const tdFecha = document.createElement('td');
     tdFecha.className = 'px-4 py-3 text-gray-300 text-sm whitespace-nowrap';
     // Mostrar fecha en formato local sin desfase de zona horaria
-    const [y, m, d] = (v.fecha || '').split('-');
-    tdFecha.textContent = v.fecha ? `${d}/${m}/${y}` : '—';
+    const [anio, mes, dia] = (venta.fecha || '').split('-');
+    tdFecha.textContent = venta.fecha ? `${dia}/${mes}/${anio}` : '—';
 
     const tdProducto = document.createElement('td');
     tdProducto.className = 'px-4 py-3 text-gray-100 text-sm font-medium max-w-[180px] truncate';
-    tdProducto.textContent = v.producto;
-    if (v.notas) tdProducto.title = v.notas;
+    tdProducto.textContent = venta.producto;
+    if (venta.notas) tdProducto.title = venta.notas;
 
     const tdCliente = document.createElement('td');
     tdCliente.className = 'px-4 py-3 text-gray-400 text-sm';
-    tdCliente.textContent = v.cliente || '—';
+    tdCliente.textContent = venta.cliente || '—';
 
     const tdCant = document.createElement('td');
     tdCant.className = 'px-4 py-3 text-gray-300 text-sm text-right';
-    tdCant.textContent = v.cantidad;
+    tdCant.textContent = venta.cantidad;
 
     const tdPrecio = document.createElement('td');
     tdPrecio.className = 'px-4 py-3 text-gray-300 text-sm text-right font-mono';
-    tdPrecio.textContent = fmt(v.precioUnitario);
+    tdPrecio.textContent = fmt(venta.precioUnitario);
 
     const tdTotal = document.createElement('td');
     tdTotal.className = 'px-4 py-3 text-emerald-400 text-sm text-right font-mono font-semibold';
@@ -1248,7 +1249,7 @@ function renderVentasTable() {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
     </svg>`;
-    btnEdit.addEventListener('click', () => openVentaModal(v));
+    btnEdit.addEventListener('click', () => openVentaModal(venta));
 
     const btnDel = document.createElement('button');
     btnDel.className = 'p-1.5 text-gray-500 hover:text-red-400 transition-colors cursor-pointer rounded';
@@ -1257,7 +1258,7 @@ function renderVentasTable() {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
     </svg>`;
-    btnDel.addEventListener('click', () => openDeleteModal(v.id, 'venta'));
+    btnDel.addEventListener('click', () => openDeleteModal(venta.id, 'venta'));
 
     btnGroup.append(btnEdit, btnDel);
     tdAcciones.appendChild(btnGroup);
@@ -1398,41 +1399,42 @@ function calcPrinterRate(adv) {
 // ── Cotizaciones: leer todos los inputs ───────────────────────────────────────
 
 function getCotizInputs() {
-  const v = id => parseFloat(document.getElementById(id)?.value) || 0;
-  const s = id => String(document.getElementById(id)?.value || '').trim();
+  // Helpers locales para leer campos del formulario
+  const getNum = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const getStr = id => String(document.getElementById(id)?.value || '').trim();
 
-  // Filas de hardware extra
-  const hwRows = [...(document.getElementById('cq-hw-rows')?.querySelectorAll('.grid') || [])].map(row => ({
-    cost: parseFloat(row.querySelector('.cq-hw-cost')?.value) || 0,
-    qty:  Math.max(1, parseInt(row.querySelector('.cq-hw-qty')?.value)  || 1),
+  // Filas de hardware extra: lee costo × cantidad de cada fila
+  const hwRows = [...(document.getElementById('cq-hw-rows')?.querySelectorAll('.grid') || [])].map(fila => ({
+    cost: parseFloat(fila.querySelector('.cq-hw-cost')?.value) || 0,
+    qty:  Math.max(1, parseInt(fila.querySelector('.cq-hw-qty')?.value)  || 1),
   }));
 
-  // Filas de empaque
-  const pkgRows = [...(document.getElementById('cq-pkg-rows')?.querySelectorAll('.grid') || [])].map(row => ({
-    cost: parseFloat(row.querySelector('.cq-pkg-cost')?.value) || 0,
-    qty:  Math.max(1, parseInt(row.querySelector('.cq-pkg-qty')?.value)  || 1),
+  // Filas de empaque: lee costo × cantidad de cada fila
+  const pkgRows = [...(document.getElementById('cq-pkg-rows')?.querySelectorAll('.grid') || [])].map(fila => ({
+    cost: parseFloat(fila.querySelector('.cq-pkg-cost')?.value) || 0,
+    qty:  Math.max(1, parseInt(fila.querySelector('.cq-pkg-qty')?.value)  || 1),
   }));
 
   return {
     // Producto
-    nombre:   String(document.getElementById('cq-nombre')?.value || '').trim(),
+    nombre:   getStr('cq-nombre'),
     material: String(document.getElementById('cq-material')?.value || ''),
     qty: Math.max(1, parseInt(document.getElementById('cq-qty')?.value) || 1),
     // Costos de impresión
-    filCostPerKg: v('cq-fil-cost'),
-    filGrams:     v('cq-fil-g'),
-    printHrs:     v('cq-print-hr'),
-    laborMin:     v('cq-labor-min'),
+    filCostPerKg: getNum('cq-fil-cost'),
+    filGrams:     getNum('cq-fil-g'),
+    printHrs:     getNum('cq-print-hr'),
+    laborMin:     getNum('cq-labor-min'),
     // Materiales extra y empaque
     hwRows,
     pkgRows,
-    shippingCost: v('cq-shipping'),
+    shippingCost: getNum('cq-shipping'),
     // Avanzados
-    efficiency:   Math.max(0.01, v('cq-adv-eff')  || 1.1),
-    laborRate:    v('cq-adv-labor')                || 20,
-    printerRate:  v('cq-adv-printer')              || 0.31,
+    efficiency:   Math.max(0.01, getNum('cq-adv-eff')  || 1.1),
+    laborRate:    getNum('cq-adv-labor')                || 20,
+    printerRate:  getNum('cq-adv-printer')              || 0.31,
     // Margen personalizado
-    customMargin: v('cq-custom-margin') || 65,
+    customMargin: getNum('cq-custom-margin') || 65,
   };
 }
 
@@ -1443,7 +1445,7 @@ function calcCotizacion(inp) {
   const filamentCost = (inp.filGrams / 1000) * inp.filCostPerKg * inp.efficiency;
 
   // 2. Materiales extra (hardware)
-  const hwCost = inp.hwRows.reduce((sum, r) => sum + r.cost * r.qty, 0);
+  const hwCost = inp.hwRows.reduce((suma, fila) => suma + fila.cost * fila.qty, 0);
 
   // 3. Costo de máquina (tiempo de impresión × tarifa $/hr)
   const machineCost = inp.printHrs * inp.printerRate;
@@ -1452,7 +1454,7 @@ function calcCotizacion(inp) {
   const laborCost = (inp.laborMin / 60) * inp.laborRate;
 
   // 5. Costo de empaque (materiales)
-  const pkgMaterials = inp.pkgRows.reduce((sum, r) => sum + r.cost * r.qty, 0);
+  const pkgMaterials = inp.pkgRows.reduce((suma, fila) => suma + fila.cost * fila.qty, 0);
   const packagingCost = pkgMaterials + inp.shippingCost;
 
   // 6. Costo total desembarcado por lote
@@ -1497,8 +1499,8 @@ function recalcularCotizacion() {
   set('cq-r-custom',    fmt(res.priceCustom));
 
   // Actualizar subtotales inline del formulario
-  const hwSub  = inp.hwRows.reduce((s, r)  => s + r.cost * r.qty, 0);
-  const pkgSub = inp.pkgRows.reduce((s, r) => s + r.cost * r.qty, 0);
+  const hwSub  = inp.hwRows.reduce((suma, fila)  => suma + fila.cost * fila.qty, 0);
+  const pkgSub = inp.pkgRows.reduce((suma, fila) => suma + fila.cost * fila.qty, 0);
   const hwSubEl  = document.getElementById('cq-hw-subtotal');
   const pkgSubEl = document.getElementById('cq-pkg-subtotal');
   if (hwSubEl)  hwSubEl.textContent  = fmt(hwSub);
@@ -1508,16 +1510,16 @@ function recalcularCotizacion() {
 // ── Cotizaciones: calculadora de tarifa de impresora ─────────────────────────
 
 function updatePrinterCalcResult() {
-  const v = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const getNum = id => parseFloat(document.getElementById(id)?.value) || 0;
   const adv = {
-    printerCost:        v('cq-pc-cost'),
-    additionalUpfront:  v('cq-pc-upfront'),
-    annualMaintenance:  v('cq-pc-maint'),
-    printerLife:        Math.max(1, v('cq-pc-life')   || 3),
-    uptime:             Math.max(1, v('cq-pc-uptime') || 50),
-    powerW:             v('cq-pc-power'),
-    electricityCost:    v('cq-pc-elec'),
-    bufferFactor:       Math.max(1, v('cq-pc-buffer') || 1.35),
+    printerCost:        getNum('cq-pc-cost'),
+    additionalUpfront:  getNum('cq-pc-upfront'),
+    annualMaintenance:  getNum('cq-pc-maint'),
+    printerLife:        Math.max(1, getNum('cq-pc-life')   || 3),
+    uptime:             Math.max(1, getNum('cq-pc-uptime') || 50),
+    powerW:             getNum('cq-pc-power'),
+    electricityCost:    getNum('cq-pc-elec'),
+    bufferFactor:       Math.max(1, getNum('cq-pc-buffer') || 1.35),
   };
   const rate = calcPrinterRate(adv);
   const resultEl = document.getElementById('cq-pc-result');
@@ -1534,13 +1536,13 @@ function subscribeProductos() {
     collection(db, 'productos'),
     where('uid', '==', currentUser.uid),
   );
-  unsubscribeProductos = onSnapshot(q, (snap) => {
-    productosItems = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
+  unsubscribeProductos = onSnapshot(q, (snapshot) => {
+    productosItems = snapshot.docs
+      .map(documento => ({ id: documento.id, ...documento.data() }))
       .sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
     renderProductosTable();
-  }, (err) => {
-    console.error('[firestore productos]', err.code);
+  }, (error) => {
+    console.error('[firestore productos]', error.code);
     showToast('Error al cargar productos. Verifica tu conexión.', 'error');
   });
 }
@@ -1562,7 +1564,7 @@ function renderProductosTable() {
 
   const fmt = n => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  productosItems.forEach(p => {
+  productosItems.forEach(producto => {
     const tr = document.createElement('tr');
     tr.className = 'border-t border-gray-700/40 hover:bg-gray-700/20 transition-colors';
 
@@ -1570,25 +1572,25 @@ function renderProductosTable() {
     tdNombre.className = 'px-4 py-3 text-gray-100 text-sm font-medium max-w-[200px]';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'truncate block';
-    nameSpan.textContent = p.nombre;
-    if (p.notas) nameSpan.title = p.notas;
+    nameSpan.textContent = producto.nombre;
+    if (producto.notas) nameSpan.title = producto.notas;
     tdNombre.appendChild(nameSpan);
 
     const tdMaterial = document.createElement('td');
     tdMaterial.className = 'hidden sm:table-cell px-4 py-3 text-gray-400 text-sm';
-    tdMaterial.textContent = p.material || '—';
+    tdMaterial.textContent = producto.material || '—';
 
     const tdQty = document.createElement('td');
     tdQty.className = 'hidden sm:table-cell px-4 py-3 text-gray-300 text-sm text-right';
-    tdQty.textContent = p.qty;
+    tdQty.textContent = producto.qty;
 
     const tdCosto = document.createElement('td');
     tdCosto.className = 'px-4 py-3 text-gray-300 text-sm text-right font-mono';
-    tdCosto.textContent = fmt(p.costoUnidad);
+    tdCosto.textContent = fmt(producto.costoUnidad);
 
     const tdPrecio = document.createElement('td');
     tdPrecio.className = 'px-4 py-3 text-emerald-400 text-sm text-right font-mono font-semibold';
-    tdPrecio.textContent = p.precioSugerido > 0 ? fmt(p.precioSugerido) : '—';
+    tdPrecio.textContent = producto.precioSugerido > 0 ? fmt(producto.precioSugerido) : '—';
 
     const tdAcciones = document.createElement('td');
     tdAcciones.className = 'px-4 py-3';
@@ -1596,7 +1598,7 @@ function renderProductosTable() {
     btnGroup.className = 'flex items-center justify-end gap-1';
 
     // Botón "Cargar en cotizaciones" (solo si tiene inputs guardados)
-    if (p.inputs) {
+    if (producto.inputs) {
       const btnLoad = document.createElement('button');
       btnLoad.className = 'p-1.5 text-gray-500 hover:text-indigo-400 transition-colors cursor-pointer rounded';
       btnLoad.title = 'Cargar en calculadora de precios';
@@ -1604,7 +1606,7 @@ function renderProductosTable() {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
       </svg>`;
-      btnLoad.addEventListener('click', () => cargarProductoEnCotizacion(p));
+      btnLoad.addEventListener('click', () => cargarProductoEnCotizacion(producto));
       btnGroup.appendChild(btnLoad);
     }
 
@@ -1615,7 +1617,7 @@ function renderProductosTable() {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
     </svg>`;
-    btnEdit.addEventListener('click', () => openProductoModal(p));
+    btnEdit.addEventListener('click', () => openProductoModal(producto));
 
     const btnDel = document.createElement('button');
     btnDel.className = 'p-1.5 text-gray-500 hover:text-red-400 transition-colors cursor-pointer rounded';
@@ -1624,7 +1626,7 @@ function renderProductosTable() {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
     </svg>`;
-    btnDel.addEventListener('click', () => openDeleteModal(p.id, 'producto'));
+    btnDel.addEventListener('click', () => openDeleteModal(producto.id, 'producto'));
 
     btnGroup.append(btnEdit, btnDel);
     tdAcciones.appendChild(btnGroup);
@@ -1760,23 +1762,23 @@ function cargarProductoEnCotizacion(producto) {
 
   // Restaurar filas de hardware
   const hwRows  = document.getElementById('cq-hw-rows')?.querySelectorAll('.grid') || [];
-  (inp.hwRows || []).forEach((r, i) => {
-    if (hwRows[i]) {
-      const costEl = hwRows[i].querySelector('.cq-hw-cost');
-      const qtyEl  = hwRows[i].querySelector('.cq-hw-qty');
-      if (costEl) costEl.value = r.cost || '';
-      if (qtyEl)  qtyEl.value  = r.qty  || 1;
+  (inp.hwRows || []).forEach((fila, indice) => {
+    if (hwRows[indice]) {
+      const costEl = hwRows[indice].querySelector('.cq-hw-cost');
+      const qtyEl  = hwRows[indice].querySelector('.cq-hw-qty');
+      if (costEl) costEl.value = fila.cost || '';
+      if (qtyEl)  qtyEl.value  = fila.qty  || 1;
     }
   });
 
   // Restaurar filas de empaque
   const pkgRows = document.getElementById('cq-pkg-rows')?.querySelectorAll('.grid') || [];
-  (inp.pkgRows || []).forEach((r, i) => {
-    if (pkgRows[i]) {
-      const costEl = pkgRows[i].querySelector('.cq-pkg-cost');
-      const qtyEl  = pkgRows[i].querySelector('.cq-pkg-qty');
-      if (costEl) costEl.value = r.cost || '';
-      if (qtyEl)  qtyEl.value  = r.qty  || 1;
+  (inp.pkgRows || []).forEach((fila, indice) => {
+    if (pkgRows[indice]) {
+      const costEl = pkgRows[indice].querySelector('.cq-pkg-cost');
+      const qtyEl  = pkgRows[indice].querySelector('.cq-pkg-qty');
+      if (costEl) costEl.value = fila.cost || '';
+      if (qtyEl)  qtyEl.value  = fila.qty  || 1;
     }
   });
 
