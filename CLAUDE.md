@@ -81,7 +81,7 @@ App is available at `https://creaticaopm.web.app`.
 
 **Table rendering**: Built entirely with DOM API (`createElement`, `textContent`) — no `innerHTML` with user data to prevent XSS. Event delegation on `<tbody>` handles edit/delete button clicks via `data-action` and `data-id` attributes.
 
-**Tab navigation**: Four tabs — "Dashboard", "Comparar", "Ventas", "Precios". `switchTab(name)` in `app.js` toggles `hidden` on each `#tab-<name>` div and updates button styles. `activeTab` variable tracks current tab. Tabs array: `['dashboard', 'comparacion', 'ventas', 'cotizaciones']`.
+**Tab navigation**: Five tabs — "Dashboard", "Comparar", "Ventas", "Precios", "Productos". `switchTab(name)` in `app.js` toggles `hidden` on each `#tab-<name>` div and updates button styles. `activeTab` variable tracks current tab. Tabs array: `['dashboard', 'comparacion', 'ventas', 'cotizaciones', 'productos']`.
 
 **Comparar tab** has two independent sections:
 
@@ -108,6 +108,13 @@ App is available at `https://creaticaopm.web.app`.
 - **Printer rate calculator** (advanced panel): `lifetimeCost = (printerCost + upfront) + (maintenance × life)`, `uptimeHrs = 8760 × uptime%`, `capitalPerHr = lifetimeCost / (uptimeHrs × life)`, `electricalPerHr = (W/1000) × $/kWh`, `rate = (capital + electrical) × bufferFactor`. "Usar esta tarifa" copies computed rate to `cq-adv-printer` field.
 - **Dynamic rows**: `initCotizRows()` populates `#cq-hw-rows` and `#cq-pkg-rows` with 5 input rows each via `innerHTML` (safe — no user data in template). Called once on load.
 - **Reactive**: single `input` event listener delegated on `#tab-cotizaciones` calls `recalcularCotizacion()` on any field change. Updates all result spans: `cq-r-materials`, `cq-r-labor`, `cq-r-machine`, `cq-r-packaging`, `cq-r-landed`, `cq-r-per-unit`, `cq-r-50`, `cq-r-60`, `cq-r-70`, `cq-r-custom`.
+
+**Productos tab**: Firestore-backed catalog of saved products.
+- Firestore collection: `productos`. Fields: `uid`, `nombre`, `material`, `qty`, `costoUnidad`, `precioSugerido`, `notas`, `inputs` (JSON string of cotizaciones form state, max 5000 chars), `createdAt`, `updatedAt`.
+- State: `productosItems[]`, `unsubscribeProductos`, `editingProductoId`, `_cotizInputsJSON` (temp var for inputs snapshot during save flow).
+- "Guardar como Producto" button in cotizaciones results panel → `guardarProductoCotizacion()` reads current form via `getCotizInputs()` (which now includes `nombre` and `material`), computes result via `calcCotizacion()`, and opens product modal pre-filled.
+- "Cargar en calculadora" row action (only visible when product has `inputs` field) → `cargarProductoEnCotizacion(producto)` parses the JSON and restores all cotizaciones form fields, then calls `switchTab('cotizaciones')` + `recalcularCotizacion()`.
+- Manual add via "Nuevo Producto" button → `openProductoModal()` / `guardarProducto()` pattern.
 
 **CSV export**: Includes UTF-8 BOM (`\uFEFF`) so Excel opens the file with correct encoding. All cell values are double-quote escaped.
 
@@ -173,6 +180,21 @@ Collection: `inventario`
 | `updatedAt` | timestamp | Set on every write via `serverTimestamp()` |
 
 Valid categories: `Filamento PLA`, `Filamento PETG`, `Resina`, `Repuestos`, `Equipos`
+
+Collection: `productos`
+
+| Field | Type | Notes |
+|---|---|---|
+| `uid` | string | Owner's Firebase Auth UID |
+| `nombre` | string | Product name, max 100 chars |
+| `material` | string | Material description, max 50 chars (optional) |
+| `qty` | number | Units calculated for, 1–999999 |
+| `costoUnidad` | number | Cost per unit in USD, 0–999999 |
+| `precioSugerido` | number | Suggested sale price in USD, 0–999999 |
+| `notas` | string | Notes, max 200 chars |
+| `inputs` | string | JSON of cotizaciones form state (for reload), max 5000 chars; empty `''` for manual entries |
+| `createdAt` | timestamp | Set on create via `serverTimestamp()` |
+| `updatedAt` | timestamp | Set on every write via `serverTimestamp()` |
 
 Collection: `ventas`
 
