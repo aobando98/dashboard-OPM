@@ -45,6 +45,14 @@ const FORM_FIELDS = [
   'field-costo',  'field-proveedor', 'field-minimo',
 ];
 
+const BADGE = {
+  'Filamento PLA':  'bg-blue-900/50 text-blue-300',
+  'Filamento PETG': 'bg-cyan-900/50 text-cyan-300',
+  'Resina':         'bg-purple-900/50 text-purple-300',
+  'Repuestos':      'bg-orange-900/50 text-orange-300',
+  'Equipos':        'bg-emerald-900/50 text-emerald-300',
+};
+
 // ── Sanitización: normaliza antes de validar ──────────────────────────────────
 function sanitizeStr(val) {
   return String(val ?? '').trim().slice(0, MAX_CHARS);
@@ -186,6 +194,165 @@ function updateUI() {
   renderChartGasto();
   renderChartInventario();
   renderTable();
+  renderComparacion();
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+let activeTab = 'dashboard';
+
+function switchTab(tab) {
+  activeTab = tab;
+  const tabs    = ['dashboard', 'comparacion'];
+  const btnBase = 'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer';
+
+  tabs.forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+    const btn = document.getElementById(`tab-btn-${t}`);
+    if (t === tab) {
+      btn.className = `${btnBase} bg-indigo-600 text-white`;
+    } else {
+      btn.className = `${btnBase} text-gray-400 hover:text-gray-200 hover:bg-gray-700/50`;
+    }
+  });
+}
+
+document.getElementById('tab-btn-dashboard').addEventListener('click', () => switchTab('dashboard'));
+document.getElementById('tab-btn-comparacion').addEventListener('click', () => switchTab('comparacion'));
+
+// ── Comparación de Proveedores ────────────────────────────────────────────────
+function renderComparacion() {
+  const container = document.getElementById('comparacion-container');
+  if (!container) return;
+
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  // Agrupar por nombre normalizado
+  const grupos = {};
+  inventarioItems.forEach(item => {
+    const key = item.nombre.trim().toLowerCase();
+    if (!grupos[key]) grupos[key] = { nombre: item.nombre, categoria: item.categoria, items: [] };
+    grupos[key].items.push(item);
+  });
+
+  // Solo grupos con 2+ proveedores distintos
+  const comparables = Object.values(grupos).filter(g => {
+    const provs = new Set(g.items.map(i => (i.proveedor || '').trim().toLowerCase()));
+    return provs.size > 1;
+  });
+
+  if (comparables.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'bg-gray-800 rounded-xl border border-gray-700/50 p-12 text-center';
+    const icon = document.createElement('div');
+    icon.className = 'w-12 h-12 bg-gray-700/60 rounded-full flex items-center justify-center mx-auto mb-4';
+    icon.innerHTML = `<svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+    </svg>`;
+    const p1 = document.createElement('p');
+    p1.className = 'text-gray-300 font-medium';
+    p1.textContent = 'Sin comparaciones disponibles';
+    const p2 = document.createElement('p');
+    p2.className = 'text-gray-500 text-sm mt-1 max-w-xs mx-auto';
+    p2.textContent = 'Agrega el mismo artículo con distintos proveedores en el inventario para verlos comparados aquí.';
+    empty.append(icon, p1, p2);
+    container.appendChild(empty);
+    return;
+  }
+
+  // Ordenar grupos alfabéticamente
+  comparables.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  comparables.forEach(grupo => {
+    const sorted    = [...grupo.items].sort((a, b) => a.costoUnitario - b.costoUnitario);
+    const minCosto  = sorted[0].costoUnitario;
+    const maxCosto  = sorted[sorted.length - 1].costoUnitario;
+    const ahorro    = maxCosto - minCosto;
+    const pctAhorro = maxCosto > 0 ? Math.round((ahorro / maxCosto) * 100) : 0;
+
+    const fmt = v => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // Card
+    const card = document.createElement('div');
+    card.className = 'bg-gray-800 rounded-xl border border-gray-700/50 p-5';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'flex items-start justify-between mb-4';
+
+    const titleWrap = document.createElement('div');
+    const title = document.createElement('h3');
+    title.className = 'text-sm font-semibold text-gray-100';
+    title.textContent = grupo.nombre;
+    const badgeEl = document.createElement('span');
+    badgeEl.className = `inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${BADGE[grupo.categoria] ?? 'bg-gray-700 text-gray-300'}`;
+    badgeEl.textContent = grupo.categoria;
+    titleWrap.append(title, badgeEl);
+
+    const savingsWrap = document.createElement('div');
+    savingsWrap.className = 'text-right flex-shrink-0 ml-4';
+    const savingsLabel = document.createElement('p');
+    savingsLabel.className = 'text-xs text-gray-500';
+    savingsLabel.textContent = 'Ahorro potencial';
+    const savingsVal = document.createElement('p');
+    savingsVal.className = 'text-sm font-bold text-green-400';
+    savingsVal.textContent = `${fmt(ahorro)} (${pctAhorro}%)`;
+    savingsWrap.append(savingsLabel, savingsVal);
+
+    header.append(titleWrap, savingsWrap);
+
+    // Filas de proveedores
+    const rows = document.createElement('div');
+    rows.className = 'space-y-2';
+
+    sorted.forEach((item, idx) => {
+      const isBest = item.costoUnitario === minCosto;
+      const row = document.createElement('div');
+      row.className = `flex items-center justify-between p-3 rounded-lg border ${
+        isBest
+          ? 'border-green-700/50 bg-green-900/20'
+          : 'border-gray-700/40 bg-gray-700/20'
+      }`;
+
+      // Izquierda: rank + nombre proveedor + stock
+      const left = document.createElement('div');
+      left.className = 'flex items-center gap-3 min-w-0';
+
+      const rank = document.createElement('span');
+      rank.className = `w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+        isBest ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'
+      }`;
+      rank.textContent = idx + 1;
+
+      const info = document.createElement('div');
+      info.className = 'min-w-0';
+      const provEl = document.createElement('p');
+      provEl.className = 'text-sm text-gray-200 font-medium truncate';
+      provEl.textContent = item.proveedor || '(sin proveedor)';
+      const qtyEl = document.createElement('p');
+      qtyEl.className = 'text-xs text-gray-500';
+      qtyEl.textContent = `Stock: ${item.cantidad} uds`;
+      info.append(provEl, qtyEl);
+      left.append(rank, info);
+
+      // Derecha: costo + diferencia
+      const right = document.createElement('div');
+      right.className = 'text-right flex-shrink-0 ml-4';
+      const costEl = document.createElement('p');
+      costEl.className = `text-sm font-bold ${isBest ? 'text-green-400' : 'text-gray-300'}`;
+      costEl.textContent = fmt(item.costoUnitario);
+      const diffEl = document.createElement('p');
+      diffEl.className = 'text-xs text-gray-500';
+      diffEl.textContent = isBest ? '✓ Más económico' : `+${fmt(item.costoUnitario - minCosto)}`;
+      right.append(costEl, diffEl);
+
+      row.append(left, right);
+      rows.appendChild(row);
+    });
+
+    card.append(header, rows);
+    container.appendChild(card);
+  });
 }
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
@@ -375,14 +542,6 @@ function renderTable() {
     tablaBody.appendChild(tr);
     return;
   }
-
-  const BADGE = {
-    'Filamento PLA':  'bg-blue-900/50 text-blue-300',
-    'Filamento PETG': 'bg-cyan-900/50 text-cyan-300',
-    'Resina':         'bg-purple-900/50 text-purple-300',
-    'Repuestos':      'bg-orange-900/50 text-orange-300',
-    'Equipos':        'bg-emerald-900/50 text-emerald-300',
-  };
 
   const fragment = document.createDocumentFragment();
 
