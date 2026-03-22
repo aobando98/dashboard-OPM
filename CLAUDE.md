@@ -81,13 +81,33 @@ App is available at `https://creaticaopm.web.app`.
 
 **Table rendering**: Built entirely with DOM API (`createElement`, `textContent`) — no `innerHTML` with user data to prevent XSS. Event delegation on `<tbody>` handles edit/delete button clicks via `data-action` and `data-id` attributes.
 
-**Tab navigation**: Two tabs in the dashboard — "Dashboard" (KPIs + charts + table) and "Comparar Proveedores". `switchTab(name)` in `app.js` toggles visibility and styles. Active tab state stored in `activeTab` variable.
+**Tab navigation**: Four tabs — "Dashboard", "Comparar", "Ventas", "Precios". `switchTab(name)` in `app.js` toggles `hidden` on each `#tab-<name>` div and updates button styles. `activeTab` variable tracks current tab. Tabs array: `['dashboard', 'comparacion', 'ventas', 'cotizaciones']`.
 
-**Comparar Proveedores tab** has two independent sections:
+**Comparar tab** has two independent sections:
 
 1. **Cotizador rápido** — in-memory scratch pad, no Firestore. State: `cotizacionItems` array + `cotizacionNextId` counter (both module-level). `renderCotizacion()` renders the entries table and comparison cards. Called only on user interaction (add/remove entry) — never from `updateUI()`. Data clears on page close. Comparison cards appear only when the same article name has 2+ distinct suppliers.
 
 2. **Desde el inventario** (`renderComparacion()`): Groups `inventarioItems` by `nombre.toLowerCase()`. Shows comparison cards only for groups with 2+ distinct suppliers, ranked by `costoUnitario` ascending. Cheapest supplier highlighted green; savings potential shown in card header. Called from `updateUI()` on every Firestore update. BADGE map is module-level (shared by `renderTable` and `renderComparacion`).
+
+**Ventas tab**: Full Firestore-backed CRUD for sales records.
+- Firestore collection: `ventas`. Fields: `uid`, `fecha` (YYYY-MM-DD string), `producto`, `cliente`, `cantidad`, `precioUnitario`, `notas`, `createdAt`, `updatedAt`.
+- State: `ventasItems[]`, `unsubscribeVentas`, `editingVentaId`. Independent `onSnapshot` subscription (`subscribeVentas()`) started on login, stopped on logout.
+- KPIs: monthly revenue, sale count, avg ticket — all filtered to current month using `v.fecha.startsWith(mesAct)`.
+- Delete reuses `modal-delete` via `pendingDeleteType` flag (`'inventario'` or `'venta'`). `openDeleteModal(id, type)` sets the flag; `handleDelete()` dispatches to correct collection.
+- Modal: `modal-venta` — reuses pattern of `openVentaModal(venta=null)` / `closeVentaModal()` / `guardarVenta()`.
+
+**Cotizaciones tab** (labeled "Precios"): Print Farm Academy pricing calculator — pure in-memory, no Firestore.
+- **Formulas** (from Print_Farm_Academy_Product_Pricing_Worksheet_V2.xlsx):
+  - `filamentCost = (g/1000) × $/kg × efficiencyFactor`
+  - `machineCost = printHrs × printerRate`
+  - `laborCost = (laborMin/60) × laborRate`
+  - `packagingCost = sum(pkgRows) + shippingCost`
+  - `totalLanded = filamentCost + hwExtras + machineCost + laborCost + packagingCost`
+  - `perUnit = totalLanded / qty`
+  - `priceAtMargin = perUnit / (1 - margin/100)`
+- **Printer rate calculator** (advanced panel): `lifetimeCost = (printerCost + upfront) + (maintenance × life)`, `uptimeHrs = 8760 × uptime%`, `capitalPerHr = lifetimeCost / (uptimeHrs × life)`, `electricalPerHr = (W/1000) × $/kWh`, `rate = (capital + electrical) × bufferFactor`. "Usar esta tarifa" copies computed rate to `cq-adv-printer` field.
+- **Dynamic rows**: `initCotizRows()` populates `#cq-hw-rows` and `#cq-pkg-rows` with 5 input rows each via `innerHTML` (safe — no user data in template). Called once on load.
+- **Reactive**: single `input` event listener delegated on `#tab-cotizaciones` calls `recalcularCotizacion()` on any field change. Updates all result spans: `cq-r-materials`, `cq-r-labor`, `cq-r-machine`, `cq-r-packaging`, `cq-r-landed`, `cq-r-per-unit`, `cq-r-50`, `cq-r-60`, `cq-r-70`, `cq-r-custom`.
 
 **CSV export**: Includes UTF-8 BOM (`\uFEFF`) so Excel opens the file with correct encoding. All cell values are double-quote escaped.
 
@@ -136,6 +156,8 @@ The CSP meta tag in `index.html` allows these origins (required for Firebase + T
 
 ## Firestore Data Model
 
+Two Firestore collections, both filtered by `uid` on every query and protected by security rules.
+
 Collection: `inventario`
 
 | Field | Type | Notes |
@@ -151,6 +173,20 @@ Collection: `inventario`
 | `updatedAt` | timestamp | Set on every write via `serverTimestamp()` |
 
 Valid categories: `Filamento PLA`, `Filamento PETG`, `Resina`, `Repuestos`, `Equipos`
+
+Collection: `ventas`
+
+| Field | Type | Notes |
+|---|---|---|
+| `uid` | string | Owner's Firebase Auth UID |
+| `fecha` | string | Date in YYYY-MM-DD format (size exactly 10) |
+| `producto` | string | Product name, max 100 chars |
+| `cliente` | string | Client name, max 100 chars (optional) |
+| `cantidad` | number | Units sold, 1–999999 |
+| `precioUnitario` | number | Unit price in USD, 0–999999 |
+| `notas` | string | Notes, max 200 chars |
+| `createdAt` | timestamp | Set on create via `serverTimestamp()` |
+| `updatedAt` | timestamp | Set on every write via `serverTimestamp()` |
 
 ## Credentials Setup
 
